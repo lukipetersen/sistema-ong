@@ -12,23 +12,23 @@ export interface PayloadRefresh {
 }
 
 export function generarToken(payload: PayloadJWT): string {
-  return jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRY || '15m',
+  return jwt.sign(payload as object, process.env.JWT_SECRET as string, {
+    expiresIn: (process.env.JWT_EXPIRY || '15m') as string,
   })
 }
 
 export function generarRefreshToken(payload: PayloadRefresh): string {
-  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
+  return jwt.sign(payload as object, process.env.JWT_REFRESH_SECRET as string, {
+    expiresIn: (process.env.JWT_REFRESH_EXPIRY || '7d') as string,
   })
 }
 
 export function verificarToken(token: string): PayloadJWT {
-  return jwt.verify(token, process.env.JWT_SECRET!) as PayloadJWT
+  return jwt.verify(token, process.env.JWT_SECRET as string) as PayloadJWT
 }
 
 export function verificarRefreshToken(token: string): PayloadRefresh {
-  return jwt.verify(token, process.env.JWT_REFRESH_SECRET!) as PayloadRefresh
+  return jwt.verify(token, process.env.JWT_REFRESH_SECRET as string) as PayloadRefresh
 }
 
 export function calcularExpiracion(dias: number): Date {
