@@ -1,0 +1,51 @@
+import 'dotenv/config'
+import 'express-async-errors'
+import express from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import authRoutes from './routes/auth'
+import { manejadorErrores } from './middleware/errores'
+
+const app = express()
+const puerto = parseInt(process.env.PORT || '3001', 10)
+
+// ─── Middlewares de seguridad ────────────────────────────────────────────────
+app.use(helmet())
+app.use(
+  cors({
+    origin: process.env.NODE_ENV === 'development'
+      ? ['http://localhost:5173', 'http://localhost:4173']
+      : true, // En producción Electron accede localmente
+    credentials: true,
+  })
+)
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true }))
+
+// ─── Rutas ───────────────────────────────────────────────────────────────────
+app.get('/api/salud', (_req, res) => {
+  res.json({
+    estado: 'ok',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+app.use('/api/auth', authRoutes)
+
+// ─── 404 ─────────────────────────────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada.' })
+})
+
+// ─── Manejo de errores ───────────────────────────────────────────────────────
+app.use(manejadorErrores)
+
+// ─── Inicio ──────────────────────────────────────────────────────────────────
+app.listen(puerto, () => {
+  console.log(`\n✅ Backend ONG corriendo en http://localhost:${puerto}`)
+  console.log(`📋 Ambiente: ${process.env.NODE_ENV}`)
+  console.log(`🏥 Health: http://localhost:${puerto}/api/salud\n`)
+})
+
+export default app

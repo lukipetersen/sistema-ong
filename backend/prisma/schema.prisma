@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────
+
+enum Rol {
+  ADMINISTRADOR
+  COORDINADOR
+  OPERADOR
+  SOLO_LECTURA
+}
+
+enum Sexo {
+  M
+  F
+  X
+}
+
+// ─── Organización ──────────────────────────────────────────────────────────
+
+model Sede {
+  id          String    @id @default(cuid())
+  nombre      String
+  direccion   String
+  localidad   String
+  provincia   String
+  codigoPostal String?
+  telefono    String?
+  email       String?
+  activo      Boolean   @default(true)
+  creadoEn    DateTime  @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  usuarios    Usuario[]
+
+  @@map("sedes")
+}
+
+model ConfiguracionOrg {
+  id            String   @id @default(cuid())
+  clave         String   @unique
+  valor         String
+  actualizadoEn DateTime @updatedAt
+
+  @@map("configuracion_org")
+}
+
+// ─── Usuarios y acceso ─────────────────────────────────────────────────────
+
+model Usuario {
+  id            String    @id @default(cuid())
+  cuil          String    @unique
+  nombre        String
+  apellido      String
+  email         String    @unique
+  password      String
+  rol           Rol       @default(OPERADOR)
+  activo        Boolean   @default(true)
+  sedeId        String?
+  sede          Sede?     @relation(fields: [sedeId], references: [id])
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  sesiones      Sesion[]
+  auditoria     Auditoria[]
+
+  @@map("usuarios")
+}
+
+model Sesion {
+  id           String   @id @default(cuid())
+  usuarioId    String
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  ip           String?
+  userAgent    String?
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+  expiraEn     DateTime
+
+  @@map("sesiones")
+}
+
+model Auditoria {
+  id          String   @id @default(cuid())
+  usuarioId   String?
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  accion      String
+  entidad     String
+  entidadId   String?
+  detalles    Json?
+  ip          String?
+  creadoEn    DateTime @default(now())
+
+  @@map("auditoria")
+}

@@ -1,0 +1,15 @@
+{
+  "name": "sistema-ong",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "dev": "concurrently -n \"DB,BACK,FRONT\" -c \"cyan,green,yellow\" --kill-others-on-fail \"npm run dev:db\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:db":       "docker compose up postgres --wait",
+    "dev:backend":  "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
