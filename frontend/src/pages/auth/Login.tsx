@@ -72,10 +72,6 @@ export default function Login() {
             FLOR<br />VIDA
           </h1>
           <div className="w-12 h-1 bg-amber-400/60 rounded-full" />
-          <p className="text-amber-100/50 text-base leading-relaxed max-w-xs">
-            Sistema de gestión interno del club. Beneficiarios, donaciones, proyectos y
-            más — todo en un solo lugar.
-          </p>
 
           <div className="flex gap-8 pt-2">
             {[
