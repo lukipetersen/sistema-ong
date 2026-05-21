@@ -68,6 +68,7 @@ export default function Login() {
 
         {/* Texto central */}
         <div className="relative space-y-6">
+          <img src="/logo.jpg" alt="Flor Vida" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
           <h1 className="text-6xl font-black text-amber-100 leading-none tracking-tight">
             FLOR<br />VIDA
           </h1>
