@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import Layout from '@/components/layout/Layout'
 import Login from '@/pages/auth/Login'
 import Dashboard from '@/pages/Dashboard'
+import Finanzas from '@/pages/Finanzas'
 import Proximamente from '@/pages/Proximamente'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
@@ -41,7 +42,7 @@ function Rutas() {
         <Route path="proyectos"     element={<Proximamente />} />
         <Route path="inventario"    element={<Proximamente />} />
         <Route path="eventos"       element={<Proximamente />} />
-        <Route path="finanzas"      element={<Proximamente />} />
+        <Route path="finanzas"      element={<Finanzas />} />
         <Route path="socios"        element={<Proximamente />} />
         <Route path="reportes"      element={<Proximamente />} />
         <Route path="configuracion" element={<Proximamente />} />

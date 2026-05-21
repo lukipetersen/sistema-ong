@@ -22,6 +22,35 @@ enum Sexo {
   X
 }
 
+enum CategoriaGasto {
+  FIJOS
+  VARIABLES
+  ADMINISTRACION
+  INVERSION
+}
+
+enum SubcategoriaGasto {
+  ALQUILER
+  INSUMOS
+  SUELDOS
+  SERVICIOS
+  MANTENIMIENTO
+  OTROS
+}
+
+enum MedioPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  CHEQUE
+}
+
+enum EstadoGasto {
+  PAGADO
+  PENDIENTE
+}
+
 // ─── Organización ──────────────────────────────────────────────────────────
 
 model Sede {
@@ -85,6 +114,22 @@ model Sesion {
   expiraEn     DateTime
 
   @@map("sesiones")
+}
+
+model Gasto {
+  id            String            @id @default(cuid())
+  fecha         DateTime
+  categoria     CategoriaGasto
+  subcategoria  SubcategoriaGasto
+  descripcion   String
+  monto         Decimal           @db.Decimal(14, 2)
+  medioPago     MedioPago?
+  estado        EstadoGasto       @default(PAGADO)
+  notas         String?
+  creadoEn      DateTime          @default(now())
+  actualizadoEn DateTime          @updatedAt
+
+  @@map("gastos")
 }
 
 model Auditoria {
