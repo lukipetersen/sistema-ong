@@ -12,15 +12,15 @@ export interface PayloadRefresh {
 }
 
 export function generarToken(payload: PayloadJWT): string {
-  return jwt.sign(payload as object, process.env.JWT_SECRET as string, {
-    expiresIn: (process.env.JWT_EXPIRY || '15m') as string,
-  })
+  const secret = process.env.JWT_SECRET as string
+  const opts: jwt.SignOptions = { expiresIn: process.env.JWT_EXPIRY || '15m' }
+  return jwt.sign(payload as jwt.JwtPayload, secret, opts)
 }
 
 export function generarRefreshToken(payload: PayloadRefresh): string {
-  return jwt.sign(payload as object, process.env.JWT_REFRESH_SECRET as string, {
-    expiresIn: (process.env.JWT_REFRESH_EXPIRY || '7d') as string,
-  })
+  const secret = process.env.JWT_REFRESH_SECRET as string
+  const opts: jwt.SignOptions = { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' }
+  return jwt.sign(payload as jwt.JwtPayload, secret, opts)
 }
 
 export function verificarToken(token: string): PayloadJWT {
