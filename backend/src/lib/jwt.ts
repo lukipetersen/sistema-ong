@@ -13,13 +13,15 @@ export interface PayloadRefresh {
 
 export function generarToken(payload: PayloadJWT): string {
   const secret = process.env.JWT_SECRET as string
-  const opts: jwt.SignOptions = { expiresIn: process.env.JWT_EXPIRY || '15m' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts: jwt.SignOptions = { expiresIn: (process.env.JWT_EXPIRY || '15m') as any }
   return jwt.sign(payload as jwt.JwtPayload, secret, opts)
 }
 
 export function generarRefreshToken(payload: PayloadRefresh): string {
   const secret = process.env.JWT_REFRESH_SECRET as string
-  const opts: jwt.SignOptions = { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts: jwt.SignOptions = { expiresIn: (process.env.JWT_REFRESH_EXPIRY || '7d') as any }
   return jwt.sign(payload as jwt.JwtPayload, secret, opts)
 }
 
