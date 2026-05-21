@@ -97,21 +97,34 @@ export default function Login() {
       </div>
 
       {/* ── Panel derecho (formulario) ── */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm">
+      <div className="flex-1 flex flex-col lg:items-center lg:justify-center bg-white overflow-y-auto">
 
-          {/* Logo mobile */}
-          <div className="flex items-center gap-3 mb-10 lg:hidden">
+        {/* Header mobile */}
+        <div className="lg:hidden relative bg-black px-8 pt-12 pb-10 overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, #f0deb0 1.5px, transparent 1.5px)',
+              backgroundSize: '24px 24px',
+            }}
+          />
+          <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className="relative flex items-center gap-4">
             <img
-              src="/logo.png"
+              src="/logo.jpg"
               alt="Flor Vida"
-              className="w-9 h-9 rounded-xl object-contain bg-black p-1"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              className="w-14 h-14 rounded-2xl object-cover shadow-lg"
             />
-            <span className="font-black text-slate-900 text-lg tracking-tight">FLOR VIDA</span>
+            <div>
+              <p className="text-amber-100/50 text-xs tracking-widest uppercase mb-0.5">Acceso interno</p>
+              <h1 className="text-2xl font-black text-amber-100 tracking-tight leading-none">FLOR VIDA</h1>
+            </div>
           </div>
+          <div className="relative w-8 h-0.5 bg-amber-400/50 rounded-full mt-5" />
+        </div>
 
-          <div className="mb-8">
+        <div className="w-full max-w-sm p-8 lg:p-0 mx-auto">
+          <div className="mb-8 mt-2 lg:mt-0">
             <h2 className="text-2xl font-bold text-slate-900">Bienvenido/a</h2>
             <p className="text-slate-500 text-sm mt-1">Ingresá con tus credenciales para continuar</p>
           </div>
