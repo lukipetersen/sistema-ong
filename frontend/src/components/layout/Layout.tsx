@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell } from 'lucide-react'
+import { Bell, Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -22,17 +23,27 @@ export default function Layout() {
   const { usuario } = useAuth()
   const navigate = useNavigate()
   const titulo = TITULOS[pathname] ?? 'Sistema ONG'
+  const [sidebarAbierto, setSidebarAbierto] = useState(false)
 
   if (!usuario) { navigate('/login', { replace: true }); return null }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar abierto={sidebarAbierto} onCerrar={() => setSidebarAbierto(false)} />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-slate-50">
         {/* Topbar */}
-        <header className="h-14 shrink-0 bg-white border-b border-slate-100 flex items-center justify-between px-6">
-          <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">{titulo}</h1>
+        <header className="h-14 shrink-0 bg-white border-b border-slate-100 flex items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center gap-3">
+            {/* Hamburguesa mobile */}
+            <button
+              onClick={() => setSidebarAbierto(true)}
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">{titulo}</h1>
+          </div>
 
           <div className="flex items-center gap-3">
             <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative">
@@ -54,7 +65,7 @@ export default function Layout() {
 
         {/* Contenido */}
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6 max-w-7xl mx-auto">
+          <div className="p-4 lg:p-6 max-w-7xl mx-auto">
             <Outlet />
           </div>
         </main>
