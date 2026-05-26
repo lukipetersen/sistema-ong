@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   Gasto, ResumenGastos, CATEGORIAS, SUBCATEGORIAS, MEDIOS_PAGO,
-  CategoriaGasto, SubcategoriaGasto, MedioPago, EstadoGasto,
 } from '@/types/gastos'
+import {
+  Ingreso, ResumenIngresos, TIPOS_INGRESO, CATEGORIAS_INGRESO,
+} from '@/types/ingresos'
 import ModalGasto from '@/components/gastos/ModalGasto'
+import ModalIngreso from '@/components/ingresos/ModalIngreso'
+
+// ─── Utilidades ──────────────────────────────────────────────────────────────
 
 const ars = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -14,6 +19,18 @@ const mesActual = () => {
   const hoy = new Date()
   return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
 }
+
+const mesesDisponibles = () =>
+  Array.from({ length: 12 }, (_, i) => {
+    const anio = new Date().getFullYear()
+    const d = new Date(anio, i, 1)
+    return {
+      value: `${anio}-${String(i + 1).padStart(2, '0')}`,
+      label: d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+    }
+  })
+
+// ─── Labels ──────────────────────────────────────────────────────────────────
 
 const LABEL_CAT: Record<string, string> = {
   FIJOS: 'Fijos', VARIABLES: 'Variables', ADMINISTRACION: 'Administración', INVERSION: 'Inversión',
@@ -26,8 +43,97 @@ const LABEL_MEDIO: Record<string, string> = {
   EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia',
   TARJETA_DEBITO: 'Déb.', TARJETA_CREDITO: 'Cred.', CHEQUE: 'Cheque',
 }
+const LABEL_TIPO: Record<string, string> = {
+  VENTA: 'Venta', CUOTA: 'Cuota', DONACION: 'Donación',
+}
+const LABEL_CAT_ING: Record<string, string> = {
+  FIJO: 'Fijo', VARIABLE: 'Variable',
+}
+
+// ─── Componentes compartidos ──────────────────────────────────────────────────
+
+function Tarjeta({ titulo, valor, color, sub }: { titulo: string; valor: string; color: string; sub?: string }) {
+  const colores: Record<string, string> = {
+    slate:   'bg-slate-900 text-white',
+    blue:    'bg-blue-50 text-blue-900',
+    violet:  'bg-violet-50 text-violet-900',
+    amber:   'bg-amber-50 text-amber-900',
+    emerald: 'bg-emerald-50 text-emerald-900',
+    teal:    'bg-teal-50 text-teal-900',
+    sky:     'bg-sky-50 text-sky-900',
+  }
+  const subColor: Record<string, string> = {
+    slate: 'text-slate-400', blue: 'text-blue-400', violet: 'text-violet-400',
+    amber: 'text-amber-600', emerald: 'text-emerald-500', teal: 'text-teal-500', sky: 'text-sky-500',
+  }
+  return (
+    <div className={`rounded-xl p-4 ${colores[color]}`}>
+      <p className={`text-xs font-medium mb-1 ${color === 'slate' ? 'text-slate-400' : 'opacity-60'}`}>{titulo}</p>
+      <p className="text-xl font-bold leading-tight">{valor}</p>
+      {sub && <p className={`text-xs mt-1 ${subColor[color]}`}>{sub}</p>}
+    </div>
+  )
+}
+
+function Selector({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-acento-500/30 focus:border-acento-500 cursor-pointer"
+      >
+        {children}
+      </select>
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+    </div>
+  )
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+
+type Tab = 'gastos' | 'ingresos'
 
 export default function Finanzas() {
+  const [tab, setTab] = useState<Tab>('gastos')
+
+  return (
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+        <TabBtn active={tab === 'gastos'} onClick={() => setTab('gastos')} icon={<TrendingDown className="w-4 h-4" />}>
+          Gastos
+        </TabBtn>
+        <TabBtn active={tab === 'ingresos'} onClick={() => setTab('ingresos')} icon={<TrendingUp className="w-4 h-4" />}>
+          Ingresos
+        </TabBtn>
+      </div>
+
+      {tab === 'gastos'   && <SeccionGastos />}
+      {tab === 'ingresos' && <SeccionIngresos />}
+    </div>
+  )
+}
+
+function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+        active
+          ? 'bg-white text-slate-900 shadow-sm'
+          : 'text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+// ─── Sección Gastos ───────────────────────────────────────────────────────────
+
+function SeccionGastos() {
   const [gastos, setGastos]     = useState<Gasto[]>([])
   const [resumen, setResumen]   = useState<ResumenGastos | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -67,23 +173,14 @@ export default function Finanzas() {
   function abrirNuevo()           { setGastoEditar(null); setModalAbierto(true) }
   function cerrarModal()          { setModalAbierto(false); setGastoEditar(null) }
 
-  const mesesDisp = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(2026, i, 1)
-    return {
-      value: `2026-${String(i + 1).padStart(2, '0')}`,
-      label: d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
-    }
-  })
-
   return (
-    <div className="space-y-6">
-
-      {/* ── Resumen ── */}
+    <>
+      {/* Resumen */}
       {resumen && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Tarjeta titulo="Total del mes"  valor={ars(resumen.total)}     color="slate" />
-          <Tarjeta titulo="Gastos fijos"   valor={ars(resumen.totalFijos)} color="blue"  />
-          <Tarjeta titulo="Gastos variables" valor={ars(resumen.totalVar)} color="violet"/>
+          <Tarjeta titulo="Total del mes"    valor={ars(resumen.total)}      color="slate" />
+          <Tarjeta titulo="Gastos fijos"     valor={ars(resumen.totalFijos)} color="blue"  />
+          <Tarjeta titulo="Gastos variables" valor={ars(resumen.totalVar)}   color="violet"/>
           <Tarjeta
             titulo="Pendientes de pago"
             valor={ars(resumen.pendientes)}
@@ -93,11 +190,11 @@ export default function Finanzas() {
         </div>
       )}
 
-      {/* ── Filtros + botón ── */}
+      {/* Filtros + botón */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <Selector value={mes} onChange={setMes}>
-            {mesesDisp.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            {mesesDisponibles().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </Selector>
           <Selector value={filtrocat} onChange={setFiltrocat}>
             <option value="">Todas las categorías</option>
@@ -114,7 +211,7 @@ export default function Finanzas() {
         </button>
       </div>
 
-      {/* ── Tabla ── */}
+      {/* Tabla */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
         {cargando ? (
           <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Cargando...</div>
@@ -143,9 +240,7 @@ export default function Finanzas() {
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
                       {new Date(g.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })}
                     </td>
-                    <td className="px-4 py-3">
-                      <BadgeCat cat={g.categoria} />
-                    </td>
+                    <td className="px-4 py-3"><BadgeCatGasto cat={g.categoria} /></td>
                     <td className="px-4 py-3 text-slate-600">{LABEL_SUB[g.subcategoria]}</td>
                     <td className="px-4 py-3 text-slate-800 font-medium max-w-[200px] truncate">{g.descripcion}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs">{g.medioPago ? LABEL_MEDIO[g.medioPago] : '—'}</td>
@@ -154,8 +249,8 @@ export default function Finanzas() {
                     </td>
                     <td className="px-4 py-3">
                       {g.estado === 'PENDIENTE'
-                        ? <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><AlertCircle className="w-3 h-3"/>Pendiente</span>
-                        : <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3"/>Pagado</span>
+                        ? <BadgePendiente label="Pendiente" />
+                        : <BadgeCobrado label="Pagado" />
                       }
                     </td>
                     <td className="px-4 py-3">
@@ -185,25 +280,16 @@ export default function Finanzas() {
         )}
       </div>
 
-      {/* ── Modal confirmación eliminar ── */}
+      {/* Modal confirmación eliminar */}
       {confirmElim && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="font-semibold text-slate-900 mb-2">¿Eliminar gasto?</h3>
-            <p className="text-slate-500 text-sm mb-5">Esta acción no se puede deshacer.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmElim(null)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
-                Cancelar
-              </button>
-              <button onClick={() => eliminar(confirmElim)} className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModalConfirmElim
+          titulo="¿Eliminar gasto?"
+          onCancelar={() => setConfirmElim(null)}
+          onConfirmar={() => eliminar(confirmElim)}
+        />
       )}
 
-      {/* ── Modal gasto ── */}
+      {/* Modal gasto */}
       {modalAbierto && (
         <ModalGasto
           gasto={gastoEditar}
@@ -211,30 +297,212 @@ export default function Finanzas() {
           onCerrar={cerrarModal}
         />
       )}
-    </div>
+    </>
   )
 }
 
-function Tarjeta({ titulo, valor, color, sub }: { titulo: string; valor: string; color: string; sub?: string }) {
-  const colores: Record<string, string> = {
-    slate:  'bg-slate-900 text-white',
-    blue:   'bg-blue-50 text-blue-900',
-    violet: 'bg-violet-50 text-violet-900',
-    amber:  'bg-amber-50 text-amber-900',
+// ─── Sección Ingresos ─────────────────────────────────────────────────────────
+
+function SeccionIngresos() {
+  const [ingresos, setIngresos]   = useState<Ingreso[]>([])
+  const [resumen, setResumen]     = useState<ResumenIngresos | null>(null)
+  const [cargando, setCargando]   = useState(true)
+  const [mes, setMes]             = useState(mesActual())
+  const [filtrotipo, setFiltrotipo] = useState('')
+  const [filtrocat, setFiltrocat]   = useState('')
+  const [filtroest, setFiltroest]   = useState('')
+  const [modalAbierto, setModalAbierto]   = useState(false)
+  const [ingresoEditar, setIngresoEditar] = useState<Ingreso | null>(null)
+  const [confirmElim, setConfirmElim]     = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    try {
+      const params: Record<string, string> = { mes, limit: '200' }
+      if (filtrotipo) params.tipo      = filtrotipo
+      if (filtrocat)  params.categoria = filtrocat
+      if (filtroest)  params.estado    = filtroest
+      const [iRes, rRes] = await Promise.all([
+        api.get('/ingresos', { params }),
+        api.get('/ingresos/resumen', { params: { mes } }),
+      ])
+      setIngresos(iRes.data.ingresos)
+      setResumen(rRes.data)
+    } finally {
+      setCargando(false)
+    }
+  }, [mes, filtrotipo, filtrocat, filtroest])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  async function eliminar(id: string) {
+    await api.delete(`/ingresos/${id}`)
+    setConfirmElim(null)
+    cargar()
   }
-  const subColor: Record<string, string> = {
-    slate: 'text-slate-400', blue: 'text-blue-400', violet: 'text-violet-400', amber: 'text-amber-600',
-  }
+
+  function abrirEditar(i: Ingreso) { setIngresoEditar(i); setModalAbierto(true) }
+  function abrirNuevo()             { setIngresoEditar(null); setModalAbierto(true) }
+  function cerrarModal()            { setModalAbierto(false); setIngresoEditar(null) }
+
   return (
-    <div className={`rounded-xl p-4 ${colores[color]}`}>
-      <p className={`text-xs font-medium mb-1 ${color === 'slate' ? 'text-slate-400' : 'opacity-60'}`}>{titulo}</p>
-      <p className="text-xl font-bold leading-tight">{valor}</p>
-      {sub && <p className={`text-xs mt-1 ${subColor[color]}`}>{sub}</p>}
-    </div>
+    <>
+      {/* Resumen */}
+      {resumen && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Tarjeta titulo="Total del mes"   valor={ars(resumen.total)}    color="slate"   />
+          <Tarjeta titulo="Ingresos fijos"  valor={ars(resumen.totalFijo)} color="emerald" />
+          <Tarjeta titulo="Ingresos variables" valor={ars(resumen.totalVar)} color="teal" />
+          <Tarjeta
+            titulo="Pendientes de cobro"
+            valor={ars(resumen.pendientes)}
+            color="amber"
+            sub={resumen.cantPend > 0 ? `${resumen.cantPend} ingreso${resumen.cantPend > 1 ? 's' : ''}` : undefined}
+          />
+        </div>
+      )}
+
+      {/* Distribución por tipo */}
+      {resumen && resumen.total > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {resumen.porTipo.map(({ tipo, total }) => (
+            <div key={tipo} className="bg-white rounded-xl border border-slate-100 p-4">
+              <div className="flex items-center justify-between mb-1">
+                <BadgeTipo tipo={tipo} />
+                <span className="text-xs text-slate-400">
+                  {resumen.total > 0 ? `${Math.round((total / resumen.total) * 100)}%` : '0%'}
+                </span>
+              </div>
+              <p className="text-lg font-bold text-slate-900 mt-1">{ars(total)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filtros + botón */}
+      <div className="flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          <Selector value={mes} onChange={setMes}>
+            {mesesDisponibles().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </Selector>
+          <Selector value={filtrotipo} onChange={setFiltrotipo}>
+            <option value="">Todos los tipos</option>
+            {TIPOS_INGRESO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </Selector>
+          <Selector value={filtrocat} onChange={setFiltrocat}>
+            <option value="">Todas las categorías</option>
+            {CATEGORIAS_INGRESO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </Selector>
+          <Selector value={filtroest} onChange={setFiltroest}>
+            <option value="">Todos los estados</option>
+            <option value="COBRADO">Cobrado</option>
+            <option value="PENDIENTE">Pendiente</option>
+          </Selector>
+        </div>
+        <button onClick={abrirNuevo} className="btn-primario flex items-center gap-2 px-4 py-2">
+          <Plus className="w-4 h-4" /> Nuevo ingreso
+        </button>
+      </div>
+
+      {/* Tabla */}
+      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        {cargando ? (
+          <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Cargando...</div>
+        ) : ingresos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <p className="text-sm">No hay ingresos registrados para este período.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left">
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoría</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {ingresos.map(i => (
+                  <tr key={i.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      {new Date(i.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })}
+                    </td>
+                    <td className="px-4 py-3"><BadgeTipo tipo={i.tipo} /></td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${
+                        i.categoria === 'FIJO'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-violet-50 text-violet-700 border-violet-200'
+                      }`}>
+                        {LABEL_CAT_ING[i.categoria]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-800 font-medium max-w-[200px] truncate">{i.descripcion}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                      {ars(Number(i.monto))}
+                    </td>
+                    <td className="px-4 py-3">
+                      {i.estado === 'PENDIENTE'
+                        ? <BadgePendiente label="Pendiente" />
+                        : <BadgeCobrado label="Cobrado" />
+                      }
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <button onClick={() => abrirEditar(i)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setConfirmElim(i.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-slate-200 bg-slate-50">
+                  <td colSpan={4} className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">
+                    {ars(ingresos.reduce((s, i) => s + Number(i.monto), 0))}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal confirmación eliminar */}
+      {confirmElim && (
+        <ModalConfirmElim
+          titulo="¿Eliminar ingreso?"
+          onCancelar={() => setConfirmElim(null)}
+          onConfirmar={() => eliminar(confirmElim)}
+        />
+      )}
+
+      {/* Modal ingreso */}
+      {modalAbierto && (
+        <ModalIngreso
+          ingreso={ingresoEditar}
+          onGuardado={() => { cerrarModal(); cargar() }}
+          onCerrar={cerrarModal}
+        />
+      )}
+    </>
   )
 }
 
-function BadgeCat({ cat }: { cat: string }) {
+// ─── Badges ───────────────────────────────────────────────────────────────────
+
+function BadgeCatGasto({ cat }: { cat: string }) {
   const estilos: Record<string, string> = {
     FIJOS:          'bg-blue-50 text-blue-700 border-blue-200',
     VARIABLES:      'bg-violet-50 text-violet-700 border-violet-200',
@@ -248,17 +516,52 @@ function BadgeCat({ cat }: { cat: string }) {
   )
 }
 
-function Selector({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+function BadgeTipo({ tipo }: { tipo: string }) {
+  const estilos: Record<string, string> = {
+    VENTA:    'bg-sky-50 text-sky-700 border-sky-200',
+    CUOTA:    'bg-violet-50 text-violet-700 border-violet-200',
+    DONACION: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  }
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-acento-500/30 focus:border-acento-500 cursor-pointer"
-      >
-        {children}
-      </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${estilos[tipo] ?? ''}`}>
+      {LABEL_TIPO[tipo]}
+    </span>
+  )
+}
+
+function BadgePendiente({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+      <AlertCircle className="w-3 h-3" />{label}
+    </span>
+  )
+}
+
+function BadgeCobrado({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+      <CheckCircle2 className="w-3 h-3" />{label}
+    </span>
+  )
+}
+
+// ─── Modal confirmación ───────────────────────────────────────────────────────
+
+function ModalConfirmElim({ titulo, onCancelar, onConfirmar }: { titulo: string; onCancelar: () => void; onConfirmar: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 className="font-semibold text-slate-900 mb-2">{titulo}</h3>
+        <p className="text-slate-500 text-sm mb-5">Esta acción no se puede deshacer.</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancelar} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+            Cancelar
+          </button>
+          <button onClick={onConfirmar} className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">
+            Eliminar
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
