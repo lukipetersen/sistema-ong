@@ -51,6 +51,22 @@ enum EstadoGasto {
   PENDIENTE
 }
 
+enum TipoIngreso {
+  VENTA
+  CUOTA
+  DONACION
+}
+
+enum CategoriaIngreso {
+  FIJO
+  VARIABLE
+}
+
+enum EstadoIngreso {
+  COBRADO
+  PENDIENTE
+}
+
 // ─── Organización ──────────────────────────────────────────────────────────
 
 model Sede {
@@ -130,6 +146,21 @@ model Gasto {
   actualizadoEn DateTime          @updatedAt
 
   @@map("gastos")
+}
+
+model Ingreso {
+  id            String           @id @default(cuid())
+  fecha         DateTime
+  tipo          TipoIngreso
+  categoria     CategoriaIngreso
+  descripcion   String
+  monto         Decimal          @db.Decimal(14, 2)
+  estado        EstadoIngreso    @default(COBRADO)
+  observaciones String?
+  creadoEn      DateTime         @default(now())
+  actualizadoEn DateTime         @updatedAt
+
+  @@map("ingresos")
 }
 
 model Auditoria {
