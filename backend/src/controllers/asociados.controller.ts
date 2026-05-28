@@ -282,20 +282,41 @@ export async function listarPagos(req: Request, res: Response) {
 
 export async function crearPago(req: Request, res: Response) {
   const datos = esquemaPago.parse(req.body)
-  const pago = await prisma.pagoAsociado.create({
-    data: {
-      asociadoId: req.params.id,
-      monto:      datos.monto,
-      fecha:      new Date(datos.fecha),
-      concepto:   datos.concepto  || null,
-      medioPago:  datos.medioPago || null,
-    },
-  })
-  // Actualizar estadoCuota a AL_DIA automáticamente
-  await prisma.asociado.update({
+
+  const asociado = await prisma.asociado.findUnique({
     where: { id: req.params.id },
-    data:  { estadoCuota: 'AL_DIA' },
+    select: { nombre: true, apellido: true },
   })
+
+  // Crear pago del asociado y registrar ingreso en módulo financiero (en paralelo)
+  const [pago] = await Promise.all([
+    prisma.pagoAsociado.create({
+      data: {
+        asociadoId: req.params.id,
+        monto:      datos.monto,
+        fecha:      new Date(datos.fecha),
+        concepto:   datos.concepto  || null,
+        medioPago:  datos.medioPago || null,
+      },
+    }),
+    prisma.ingreso.create({
+      data: {
+        fecha:         new Date(datos.fecha),
+        tipo:          'CUOTA',
+        categoria:     'FIJO',
+        descripcion:   datos.concepto || `Cuota — ${asociado?.apellido}, ${asociado?.nombre}`,
+        monto:         datos.monto,
+        estado:        'COBRADO',
+        observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
+      },
+    }),
+    // Actualizar estadoCuota a AL_DIA
+    prisma.asociado.update({
+      where: { id: req.params.id },
+      data:  { estadoCuota: 'AL_DIA' },
+    }),
+  ])
+
   res.status(201).json(pago)
 }
 
