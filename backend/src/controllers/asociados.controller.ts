@@ -288,7 +288,20 @@ export async function crearPago(req: Request, res: Response) {
     select: { nombre: true, apellido: true },
   })
 
-  // Crear pago del asociado y registrar ingreso en módulo financiero (en paralelo)
+  // Crear el ingreso primero para obtener su ID
+  const ingreso = await prisma.ingreso.create({
+    data: {
+      fecha:         new Date(datos.fecha),
+      tipo:          'CUOTA',
+      categoria:     'FIJO',
+      descripcion:   datos.concepto || `Cuota — ${asociado?.apellido}, ${asociado?.nombre}`,
+      monto:         datos.monto,
+      estado:        'COBRADO',
+      observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
+    },
+  })
+
+  // Crear pago vinculado al ingreso y actualizar estado cuota
   const [pago] = await Promise.all([
     prisma.pagoAsociado.create({
       data: {
@@ -297,20 +310,9 @@ export async function crearPago(req: Request, res: Response) {
         fecha:      new Date(datos.fecha),
         concepto:   datos.concepto  || null,
         medioPago:  datos.medioPago || null,
+        ingresoId:  ingreso.id,
       },
     }),
-    prisma.ingreso.create({
-      data: {
-        fecha:         new Date(datos.fecha),
-        tipo:          'CUOTA',
-        categoria:     'FIJO',
-        descripcion:   datos.concepto || `Cuota — ${asociado?.apellido}, ${asociado?.nombre}`,
-        monto:         datos.monto,
-        estado:        'COBRADO',
-        observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
-      },
-    }),
-    // Actualizar estadoCuota a AL_DIA
     prisma.asociado.update({
       where: { id: req.params.id },
       data:  { estadoCuota: 'AL_DIA' },
@@ -321,7 +323,15 @@ export async function crearPago(req: Request, res: Response) {
 }
 
 export async function eliminarPago(req: Request, res: Response) {
+  // Obtener el pago para saber si tiene ingreso vinculado
+  const pago = await prisma.pagoAsociado.findUnique({ where: { id: req.params.pid } })
+
   await prisma.pagoAsociado.delete({ where: { id: req.params.pid } })
+
+  // Eliminar el ingreso vinculado si existe
+  if (pago?.ingresoId) {
+    await prisma.ingreso.delete({ where: { id: pago.ingresoId } }).catch(() => {})
+  }
 
   // Recalcular estadoCuota según pagos restantes
   const pagosRestantes = await prisma.pagoAsociado.count({

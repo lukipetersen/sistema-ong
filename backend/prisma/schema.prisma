@@ -255,6 +255,7 @@ model PagoAsociado {
   fecha      DateTime
   concepto   String?
   medioPago  MedioPago?
+  ingresoId  String?    // referencia al Ingreso creado automáticamente
   creadoEn   DateTime   @default(now())
 
   @@index([asociadoId])
