@@ -322,5 +322,15 @@ export async function crearPago(req: Request, res: Response) {
 
 export async function eliminarPago(req: Request, res: Response) {
   await prisma.pagoAsociado.delete({ where: { id: req.params.pid } })
+
+  // Recalcular estadoCuota según pagos restantes
+  const pagosRestantes = await prisma.pagoAsociado.count({
+    where: { asociadoId: req.params.id },
+  })
+  await prisma.asociado.update({
+    where: { id: req.params.id },
+    data:  { estadoCuota: pagosRestantes > 0 ? 'AL_DIA' : 'PENDIENTE' },
+  })
+
   res.json({ ok: true })
 }
