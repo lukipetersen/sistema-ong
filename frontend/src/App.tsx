@@ -5,6 +5,9 @@ import Layout from '@/components/layout/Layout'
 import Login from '@/pages/auth/Login'
 import Dashboard from '@/pages/Dashboard'
 import Finanzas from '@/pages/Finanzas'
+import ListaAsociados from '@/pages/asociados/ListaAsociados'
+import FichaAsociado from '@/pages/asociados/FichaAsociado'
+import FormularioAsociado from '@/pages/asociados/FormularioAsociado'
 import Proximamente from '@/pages/Proximamente'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
@@ -37,6 +40,10 @@ function Rutas() {
       <Route path="/" element={<RutaProtegida><Layout /></RutaProtegida>}>
         <Route index                element={<Dashboard />} />
         <Route path="beneficiarios" element={<Proximamente />} />
+        <Route path="asociados"                    element={<ListaAsociados />} />
+        <Route path="asociados/nuevo"              element={<FormularioAsociado modo="crear" />} />
+        <Route path="asociados/:id"                element={<FichaAsociado />} />
+        <Route path="asociados/:id/editar"         element={<FormularioAsociado modo="editar" />} />
         <Route path="voluntarios"   element={<Proximamente />} />
         <Route path="donaciones"    element={<Proximamente />} />
         <Route path="proyectos"     element={<Proximamente />} />

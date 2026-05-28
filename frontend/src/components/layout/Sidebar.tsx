@@ -15,7 +15,7 @@ const nav = [
   { label: 'Inventario',    icono: Package,          ruta: '/inventario'   },
   { label: 'Eventos',       icono: Calendar,         ruta: '/eventos'      },
   { label: 'Finanzas',      icono: Landmark,         ruta: '/finanzas'     },
-  { label: 'Socios',        icono: UserCheck,        ruta: '/socios'       },
+  { label: 'Asociados',     icono: UserCheck,        ruta: '/asociados'    },
   { label: 'Reportes',      icono: BarChart3,        ruta: '/reportes'     },
 ]
 

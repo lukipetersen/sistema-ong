@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import authRoutes from './routes/auth'
 import gastosRoutes from './routes/gastos'
 import ingresosRoutes from './routes/ingresos'
+import asociadosRoutes from './routes/asociados'
 import { manejadorErrores } from './middleware/errores'
 
 const app = express()
@@ -36,6 +37,7 @@ app.get('/api/salud', (_req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/gastos', gastosRoutes)
 app.use('/api/ingresos', ingresosRoutes)
+app.use('/api/asociados', asociadosRoutes)
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

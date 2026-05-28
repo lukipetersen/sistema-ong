@@ -67,22 +67,52 @@ enum EstadoIngreso {
   PENDIENTE
 }
 
+enum EstadoAsociado {
+  ACTIVO
+  PENDIENTE
+  INACTIVO
+}
+
+enum Patologia {
+  ANSIEDAD
+  INSOMNIO
+  DOLOR
+  EPILEPSIA
+  ESTRES
+  DEPRESION
+  MIGRANA
+  ARTRITIS
+  FIBROMIALGIA
+  PARKINSON
+  TEA
+  APETITO
+  NAUSEAS
+  INFLAMACION
+  OTRA
+}
+
+enum EstadoCuota {
+  AL_DIA
+  VENCIDA
+  PENDIENTE
+}
+
 // ─── Organización ──────────────────────────────────────────────────────────
 
 model Sede {
-  id          String    @id @default(cuid())
-  nombre      String
-  direccion   String
-  localidad   String
-  provincia   String
+  id           String   @id @default(cuid())
+  nombre       String
+  direccion    String
+  localidad    String
+  provincia    String
   codigoPostal String?
-  telefono    String?
-  email       String?
-  activo      Boolean   @default(true)
-  creadoEn    DateTime  @default(now())
+  telefono     String?
+  email        String?
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  usuarios    Usuario[]
+  usuarios Usuario[]
 
   @@map("sedes")
 }
@@ -99,21 +129,21 @@ model ConfiguracionOrg {
 // ─── Usuarios y acceso ─────────────────────────────────────────────────────
 
 model Usuario {
-  id            String    @id @default(cuid())
-  cuil          String    @unique
+  id            String   @id @default(cuid())
+  cuil          String   @unique
   nombre        String
   apellido      String
-  email         String    @unique
+  email         String   @unique
   password      String
-  rol           Rol       @default(OPERADOR)
-  activo        Boolean   @default(true)
+  rol           Rol      @default(OPERADOR)
+  activo        Boolean  @default(true)
   sedeId        String?
-  sede          Sede?     @relation(fields: [sedeId], references: [id])
-  creadoEn      DateTime  @default(now())
-  actualizadoEn DateTime  @updatedAt
+  sede          Sede?    @relation(fields: [sedeId], references: [id])
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  sesiones      Sesion[]
-  auditoria     Auditoria[]
+  sesiones  Sesion[]
+  auditoria Auditoria[]
 
   @@map("usuarios")
 }
@@ -131,6 +161,8 @@ model Sesion {
 
   @@map("sesiones")
 }
+
+// ─── Finanzas ──────────────────────────────────────────────────────────────
 
 model Gasto {
   id            String            @id @default(cuid())
@@ -163,16 +195,84 @@ model Ingreso {
   @@map("ingresos")
 }
 
+// ─── Asociados ─────────────────────────────────────────────────────────────
+
+model Asociado {
+  id              String         @id @default(cuid())
+  nombre          String
+  apellido        String
+  dni             String         @unique
+  fechaNacimiento DateTime?
+  telefono        String?
+  email           String?
+  direccion       String?
+  fechaAlta       DateTime       @default(now())
+  estado          EstadoAsociado @default(PENDIENTE)
+
+  patologia     Patologia?
+  patologiaOtra String?
+  observaciones String?
+  notasInternas String?
+
+  estadoCuota   EstadoCuota @default(PENDIENTE)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  seguimientos SeguimientoTerapeutico[]
+  pagos        PagoAsociado[]
+
+  @@index([dni])
+  @@index([estado])
+  @@index([apellido, nombre])
+  @@map("asociados")
+}
+
+model SeguimientoTerapeutico {
+  id            String   @id @default(cuid())
+  asociadoId    String
+  asociado      Asociado @relation(fields: [asociadoId], references: [id], onDelete: Cascade)
+  fecha         DateTime
+  resultado     String
+  observaciones String?
+  continuidad   Boolean  @default(true)
+
+  geneticaId String?
+  loteId     String?
+  plantaId   String?
+
+  creadoEn DateTime @default(now())
+
+  @@index([asociadoId])
+  @@map("seguimientos_terapeuticos")
+}
+
+model PagoAsociado {
+  id         String     @id @default(cuid())
+  asociadoId String
+  asociado   Asociado   @relation(fields: [asociadoId], references: [id], onDelete: Cascade)
+  monto      Decimal    @db.Decimal(14, 2)
+  fecha      DateTime
+  concepto   String?
+  medioPago  MedioPago?
+  creadoEn   DateTime   @default(now())
+
+  @@index([asociadoId])
+  @@map("pagos_asociados")
+}
+
+// ─── Auditoría ─────────────────────────────────────────────────────────────
+
 model Auditoria {
-  id          String   @id @default(cuid())
-  usuarioId   String?
-  usuario     Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  accion      String
-  entidad     String
-  entidadId   String?
-  detalles    Json?
-  ip          String?
-  creadoEn    DateTime @default(now())
+  id        String   @id @default(cuid())
+  usuarioId String?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  accion    String
+  entidad   String
+  entidadId String?
+  detalles  Json?
+  ip        String?
+  creadoEn  DateTime @default(now())
 
   @@map("auditoria")
 }
