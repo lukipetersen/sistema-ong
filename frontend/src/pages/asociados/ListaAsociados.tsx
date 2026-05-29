@@ -197,6 +197,7 @@ export function BadgeEstado({ e }: { e: string }) {
 export function BadgeCuota({ c }: { c: string }) {
   const estilos: Record<string, string> = {
     AL_DIA:   'bg-emerald-50 text-emerald-700 border-emerald-200',
+    PARCIAL:  'bg-blue-50 text-blue-700 border-blue-200',
     VENCIDA:  'bg-red-50 text-red-700 border-red-200',
     PENDIENTE:'bg-amber-50 text-amber-700 border-amber-200',
   }

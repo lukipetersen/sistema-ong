@@ -248,6 +248,7 @@ export default function FichaAsociado() {
       {modalPago && (
         <ModalPago
           asociadoId={id!}
+          asociado={asociado}
           onGuardado={() => { setModalPago(false); cargar() }}
           onCerrar={() => setModalPago(false)}
         />

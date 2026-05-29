@@ -93,8 +93,9 @@ enum Patologia {
 
 enum EstadoCuota {
   AL_DIA
-  VENCIDA
+  PARCIAL
   PENDIENTE
+  VENCIDA
 }
 
 // ─── Organización ──────────────────────────────────────────────────────────
@@ -215,6 +216,7 @@ model Asociado {
   notasInternas String?
 
   estadoCuota   EstadoCuota @default(PENDIENTE)
+  cuotaMensual  Decimal?   @db.Decimal(14, 2)
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
@@ -255,6 +257,7 @@ model PagoAsociado {
   fecha      DateTime
   concepto   String?
   medioPago  MedioPago?
+  mesCuota   String?    // YYYY-MM: mes al que aplica este pago
   ingresoId  String?    // referencia al Ingreso creado automáticamente
   creadoEn   DateTime   @default(now())
 

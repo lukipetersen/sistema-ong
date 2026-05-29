@@ -1,14 +1,23 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, AlertCircle } from 'lucide-react'
 import { api } from '@/lib/api'
 import { MEDIOS_PAGO } from '@/types/gastos'
+import { Asociado, PagoAsociado } from '@/types/asociados'
+
+const ars = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+
+const mesActual = () => {
+  const hoy = new Date()
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
+}
 
 const esquema = z.object({
   monto:     z.coerce.number().positive('El monto debe ser mayor a 0'),
   fecha:     z.string().min(1, 'La fecha es obligatoria'),
+  mesCuota:  z.string().min(1, 'Seleccioná el mes que cancela'),
   concepto:  z.string().optional(),
   medioPago: z.string().optional(),
 })
@@ -16,22 +25,45 @@ type FormData = z.infer<typeof esquema>
 
 interface Props {
   asociadoId: string
+  asociado?: Asociado & { pagos: PagoAsociado[] }
   onGuardado: () => void
   onCerrar: () => void
 }
 
-export default function ModalPago({ asociadoId, onGuardado, onCerrar }: Props) {
+export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }: Props) {
   const hoy = new Date().toISOString().split('T')[0]
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
+  const [saldoMes, setSaldoMes] = useState<{ pagado: number; falta: number } | null>(null)
+
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(esquema),
-    defaultValues: { fecha: hoy, concepto: '' },
+    defaultValues: { fecha: hoy, mesCuota: mesActual(), concepto: '' },
   })
+
+  const mesSeleccionado = watch('mesCuota')
+  const cuota = asociado?.cuotaMensual ? Number(asociado.cuotaMensual) : null
+
+  // Calcular saldo del mes seleccionado
+  useEffect(() => {
+    if (!cuota || !mesSeleccionado || !asociado?.pagos) { setSaldoMes(null); return }
+    const pagado = asociado.pagos
+      .filter(p => p.mesCuota === mesSeleccionado)
+      .reduce((s, p) => s + Number(p.monto), 0)
+    setSaldoMes({ pagado, falta: Math.max(0, cuota - pagado) })
+  }, [mesSeleccionado, cuota, asociado?.pagos])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onCerrar])
+
+  // Generar opciones de meses (6 meses atrás + mes actual + 1 adelante)
+  const meses = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - 6 + i)
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    return { value: val, label: d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) }
+  })
 
   async function onSubmit(datos: FormData) {
     await api.post(`/asociados/${asociadoId}/pagos`, {
@@ -54,16 +86,40 @@ export default function ModalPago({ asociadoId, onGuardado, onCerrar }: Props) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-4">
+
+          {/* Mes que cancela */}
+          <div>
+            <label className="etiqueta">Mes que cancela</label>
+            <select className={`campo ${errors.mesCuota ? 'campo-error' : ''}`} {...register('mesCuota')}>
+              {meses.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            {errors.mesCuota && <p className="msg-error mt-1"><AlertCircle className="w-3 h-3" />{errors.mesCuota.message}</p>}
+          </div>
+
+          {/* Saldo del mes si hay cuota definida */}
+          {cuota && saldoMes !== null && (
+            <div className={`rounded-lg px-4 py-3 text-sm ${saldoMes.falta === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+              {saldoMes.falta === 0
+                ? `✓ Cuota ${ars(cuota)} ya cubierta para este mes`
+                : <>Cuota: <strong>{ars(cuota)}</strong> · Pagado: <strong>{ars(saldoMes.pagado)}</strong> · Falta: <strong>{ars(saldoMes.falta)}</strong></>
+              }
+            </div>
+          )}
+
+          {cuota && (
+            <p className="text-xs text-slate-400">Cuota mensual del asociado: {ars(cuota)}</p>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="etiqueta">Monto (ARS)</label>
-              <input type="number" step="0.01" min="0" placeholder="0" className={`campo ${errors.monto ? 'campo-error' : ''}`} {...register('monto')} />
+              <input type="number" step="0.01" min="0" placeholder="0"
+                className={`campo ${errors.monto ? 'campo-error' : ''}`} {...register('monto')} />
               {errors.monto && <p className="msg-error mt-1"><AlertCircle className="w-3 h-3" />{errors.monto.message}</p>}
             </div>
             <div>
-              <label className="etiqueta">Fecha</label>
+              <label className="etiqueta">Fecha de pago</label>
               <input type="date" className={`campo ${errors.fecha ? 'campo-error' : ''}`} {...register('fecha')} />
-              {errors.fecha && <p className="msg-error mt-1"><AlertCircle className="w-3 h-3" />{errors.fecha.message}</p>}
             </div>
           </div>
 

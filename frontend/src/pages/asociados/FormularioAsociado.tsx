@@ -16,7 +16,8 @@ const esquema = z.object({
   email:           z.string().email('Email inválido').optional().or(z.literal('')),
   direccion:       z.string().optional(),
   estado:          z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']),
-  estadoCuota:     z.enum(['AL_DIA', 'VENCIDA', 'PENDIENTE']),
+  estadoCuota:     z.enum(['AL_DIA', 'PARCIAL', 'VENCIDA', 'PENDIENTE']),
+  cuotaMensual:    z.coerce.number().positive().optional().or(z.literal('')),
   patologia:       z.string().optional(),
   patologiaOtra:   z.string().optional(),
   observaciones:   z.string().optional(),
@@ -33,7 +34,7 @@ export default function FormularioAsociado({ modo }: Props) {
 
   const { register, handleSubmit, watch, reset, setError, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(esquema),
-    defaultValues: { estado: 'PENDIENTE', estadoCuota: 'PENDIENTE' },
+    defaultValues: { estado: 'PENDIENTE', estadoCuota: 'PENDIENTE', cuotaMensual: '' },
   })
 
   const patologiaSeleccionada = watch('patologia')
@@ -51,6 +52,7 @@ export default function FormularioAsociado({ modo }: Props) {
         direccion:       data.direccion ?? '',
         estado:          data.estado,
         estadoCuota:     data.estadoCuota,
+        cuotaMensual:    data.cuotaMensual ?? '',
         patologia:       data.patologia  ?? '',
         patologiaOtra:   data.patologiaOtra ?? '',
         observaciones:   data.observaciones ?? '',
@@ -71,6 +73,7 @@ export default function FormularioAsociado({ modo }: Props) {
         patologiaOtra:   datos.patologiaOtra    || null,
         observaciones:   datos.observaciones    || null,
         notasInternas:   datos.notasInternas    || null,
+        cuotaMensual:    datos.cuotaMensual     || null,
       }
       if (esEdicion) {
         await api.put(`/asociados/${id}`, payload)
@@ -144,10 +147,21 @@ export default function FormularioAsociado({ modo }: Props) {
                 <select className="campo" {...register('estadoCuota')}>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="AL_DIA">Al día</option>
+                  <option value="PARCIAL">Parcial</option>
                   <option value="VENCIDA">Vencida</option>
                 </select>
               </Campo>
             </div>
+            <Campo label="Valor de cuota mensual (ARS)" error={errors.cuotaMensual?.message}>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Ej: 5000 — dejar vacío si no aplica"
+                className="campo"
+                {...register('cuotaMensual')}
+              />
+            </Campo>
           </Seccion>
 
           {/* Información terapéutica */}

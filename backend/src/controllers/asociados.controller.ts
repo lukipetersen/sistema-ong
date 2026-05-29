@@ -19,7 +19,8 @@ const esquemaAsociado = z.object({
   patologiaOtra:   z.string().optional().nullable(),
   observaciones:   z.string().optional().nullable(),
   notasInternas:   z.string().optional().nullable(),
-  estadoCuota:     z.enum(['AL_DIA', 'VENCIDA', 'PENDIENTE']).default('PENDIENTE'),
+  estadoCuota:     z.enum(['AL_DIA', 'PARCIAL', 'VENCIDA', 'PENDIENTE']).default('PENDIENTE'),
+  cuotaMensual:    z.coerce.number().positive().optional().nullable(),
 })
 
 const esquemaSeguimiento = z.object({
@@ -32,6 +33,7 @@ const esquemaSeguimiento = z.object({
 const esquemaPago = z.object({
   monto:     z.coerce.number().positive('El monto debe ser mayor a 0'),
   fecha:     z.string().min(1, 'La fecha es obligatoria'),
+  mesCuota:  z.string().optional().nullable(), // YYYY-MM
   concepto:  z.string().optional().nullable(),
   medioPago: z.enum(['EFECTIVO','TRANSFERENCIA','TARJETA_DEBITO','TARJETA_CREDITO','CHEQUE']).optional().nullable(),
 })
@@ -49,6 +51,46 @@ function buildBusqueda(q: string) {
       { email:    { contains: termino, mode: 'insensitive' as const } },
     ],
   }
+}
+
+// ─── Helper: recalcular estadoCuota ──────────────────────────────────────────
+
+async function recalcularEstadoCuota(asociadoId: string) {
+  const asociado = await prisma.asociado.findUnique({
+    where: { id: asociadoId },
+    select: { cuotaMensual: true, pagos: true },
+  })
+  if (!asociado) return
+
+  // Si no tiene cuota definida, solo verificar si hay pagos
+  if (!asociado.cuotaMensual) {
+    const tienePagos = asociado.pagos.length > 0
+    await prisma.asociado.update({
+      where: { id: asociadoId },
+      data:  { estadoCuota: tienePagos ? 'AL_DIA' : 'PENDIENTE' },
+    })
+    return
+  }
+
+  const cuota = Number(asociado.cuotaMensual)
+
+  // Mes actual en formato YYYY-MM
+  const ahora   = new Date()
+  const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
+
+  // Sumar pagos que corresponden al mes actual
+  const pagosDelMes = asociado.pagos.filter(p => p.mesCuota === mesActual)
+  const totalPagado = pagosDelMes.reduce((s, p) => s + Number(p.monto), 0)
+
+  let nuevoEstado: 'AL_DIA' | 'PARCIAL' | 'PENDIENTE'
+  if (totalPagado >= cuota)       nuevoEstado = 'AL_DIA'
+  else if (totalPagado > 0)       nuevoEstado = 'PARCIAL'
+  else                            nuevoEstado = 'PENDIENTE'
+
+  await prisma.asociado.update({
+    where: { id: asociadoId },
+    data:  { estadoCuota: nuevoEstado },
+  })
 }
 
 // ─── Controladores ────────────────────────────────────────────────────────────
@@ -288,36 +330,40 @@ export async function crearPago(req: Request, res: Response) {
     select: { nombre: true, apellido: true },
   })
 
-  // Crear el ingreso primero para obtener su ID
+  // Mes al que aplica (default: mes del pago)
+  const fechaPago  = new Date(datos.fecha)
+  const mesCuota   = datos.mesCuota ||
+    `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`
+
+  const descripcionIngreso = datos.concepto ||
+    `Cuota ${mesCuota} — ${asociado?.apellido}, ${asociado?.nombre}`
+
+  // Crear ingreso primero para obtener su ID
   const ingreso = await prisma.ingreso.create({
     data: {
-      fecha:         new Date(datos.fecha),
+      fecha:         fechaPago,
       tipo:          'CUOTA',
       categoria:     'FIJO',
-      descripcion:   datos.concepto || `Cuota — ${asociado?.apellido}, ${asociado?.nombre}`,
+      descripcion:   descripcionIngreso,
       monto:         datos.monto,
       estado:        'COBRADO',
       observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
     },
   })
 
-  // Crear pago vinculado al ingreso y actualizar estado cuota
-  const [pago] = await Promise.all([
-    prisma.pagoAsociado.create({
-      data: {
-        asociadoId: req.params.id,
-        monto:      datos.monto,
-        fecha:      new Date(datos.fecha),
-        concepto:   datos.concepto  || null,
-        medioPago:  datos.medioPago || null,
-        ingresoId:  ingreso.id,
-      },
-    }),
-    prisma.asociado.update({
-      where: { id: req.params.id },
-      data:  { estadoCuota: 'AL_DIA' },
-    }),
-  ])
+  const pago = await prisma.pagoAsociado.create({
+    data: {
+      asociadoId: req.params.id,
+      monto:      datos.monto,
+      fecha:      fechaPago,
+      mesCuota,
+      concepto:   datos.concepto  || null,
+      medioPago:  datos.medioPago || null,
+      ingresoId:  ingreso.id,
+    },
+  })
+
+  await recalcularEstadoCuota(req.params.id)
 
   res.status(201).json(pago)
 }
@@ -333,14 +379,6 @@ export async function eliminarPago(req: Request, res: Response) {
     await prisma.ingreso.delete({ where: { id: pago.ingresoId } }).catch(() => {})
   }
 
-  // Recalcular estadoCuota según pagos restantes
-  const pagosRestantes = await prisma.pagoAsociado.count({
-    where: { asociadoId: req.params.id },
-  })
-  await prisma.asociado.update({
-    where: { id: req.params.id },
-    data:  { estadoCuota: pagosRestantes > 0 ? 'AL_DIA' : 'PENDIENTE' },
-  })
-
+  await recalcularEstadoCuota(req.params.id)
   res.json({ ok: true })
 }

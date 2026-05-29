@@ -1,5 +1,5 @@
 export type EstadoAsociado = 'ACTIVO' | 'PENDIENTE' | 'INACTIVO'
-export type EstadoCuota   = 'AL_DIA' | 'VENCIDA' | 'PENDIENTE'
+export type EstadoCuota   = 'AL_DIA' | 'PARCIAL' | 'VENCIDA' | 'PENDIENTE'
 export type Patologia = 'ANSIEDAD'|'INSOMNIO'|'DOLOR'|'EPILEPSIA'|'ESTRES'|'DEPRESION'|
                         'MIGRANA'|'ARTRITIS'|'FIBROMIALGIA'|'PARKINSON'|'TEA'|'APETITO'|
                         'NAUSEAS'|'INFLAMACION'|'OTRA'
@@ -20,6 +20,7 @@ export interface Asociado {
   observaciones: string | null
   notasInternas: string | null
   estadoCuota: EstadoCuota
+  cuotaMensual: string | null
   creadoEn: string
   _count?: { seguimientos: number }
 }
@@ -39,6 +40,7 @@ export interface PagoAsociado {
   asociadoId: string
   monto: string
   fecha: string
+  mesCuota: string | null
   concepto: string | null
   medioPago: string | null
   creadoEn: string
@@ -70,6 +72,7 @@ export const LABEL_ESTADO: Record<EstadoAsociado, string> = {
 
 export const LABEL_CUOTA: Record<EstadoCuota, string> = {
   AL_DIA:   'Al día',
+  PARCIAL:  'Parcial',
   VENCIDA:  'Vencida',
   PENDIENTE:'Pendiente',
 }
