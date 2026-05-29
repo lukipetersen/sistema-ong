@@ -423,3 +423,67 @@ export async function eliminarCuota(req: Request, res: Response) {
   await recalcularEstadoCuota(req.params.id)
   res.json({ ok: true })
 }
+
+// ─── Cuotas globales ─────────────────────────────────────────────────────────
+
+export async function listarCuotasGlobales(_req: Request, res: Response) {
+  const cuotas = await prisma.cuotaGlobal.findMany({ orderBy: { mes: 'desc' } })
+  res.json(cuotas)
+}
+
+export async function aplicarCuotaGlobal(req: Request, res: Response) {
+  const datos = esquemaCuotaMes.parse(req.body)
+
+  // Todos los asociados activos y pendientes
+  const asociados = await prisma.asociado.findMany({
+    where: { estado: { in: ['ACTIVO', 'PENDIENTE'] } },
+    select: { id: true },
+  })
+
+  // Upsert en cuotas_mensuales para cada asociado
+  await Promise.all(
+    asociados.map(a =>
+      prisma.cuotaMes.upsert({
+        where:  { asociadoId_mes: { asociadoId: a.id, mes: datos.mes } },
+        update: { monto: datos.monto },
+        create: { asociadoId: a.id, mes: datos.mes, monto: datos.monto },
+      })
+    )
+  )
+
+  // Recalcular estadoCuota de todos (en paralelo, máx 10 a la vez)
+  const ids = asociados.map(a => a.id)
+  for (let i = 0; i < ids.length; i += 10) {
+    await Promise.all(ids.slice(i, i + 10).map(id => recalcularEstadoCuota(id)))
+  }
+
+  // Guardar registro histórico
+  const global = await prisma.cuotaGlobal.upsert({
+    where:  { mes: datos.mes },
+    update: { monto: datos.monto, totalAsociados: asociados.length },
+    create: { mes: datos.mes, monto: datos.monto, totalAsociados: asociados.length },
+  })
+
+  res.json({ ...global, actualizados: asociados.length })
+}
+
+export async function eliminarCuotaGlobal(req: Request, res: Response) {
+  const { mes } = req.params
+
+  // Borrar la cuota de todos los asociados para ese mes
+  await prisma.cuotaMes.deleteMany({ where: { mes } })
+
+  // Borrar el registro global
+  await prisma.cuotaGlobal.delete({ where: { mes } }).catch(() => {})
+
+  // Recalcular todos los afectados
+  const asociados = await prisma.asociado.findMany({
+    where: { estado: { in: ['ACTIVO', 'PENDIENTE'] } },
+    select: { id: true },
+  })
+  for (let i = 0; i < asociados.length; i += 10) {
+    await Promise.all(asociados.slice(i, i + 10).map(a => recalcularEstadoCuota(a.id)))
+  }
+
+  res.json({ ok: true })
+}

@@ -250,6 +250,16 @@ model SeguimientoTerapeutico {
   @@map("seguimientos_terapeuticos")
 }
 
+model CuotaGlobal {
+  id             String   @id @default(cuid())
+  mes            String   @unique   // YYYY-MM
+  monto          Decimal  @db.Decimal(14, 2)
+  totalAsociados Int      @default(0)
+  creadoEn       DateTime @default(now())
+
+  @@map("cuotas_globales")
+}
+
 model CuotaMes {
   id         String   @id @default(cuid())
   asociadoId String

@@ -5,6 +5,7 @@ import {
   listarSeguimientos, crearSeguimiento, actualizarSeguimiento, eliminarSeguimiento,
   listarPagos, crearPago, eliminarPago,
   listarCuotas, upsertCuota, eliminarCuota,
+  listarCuotasGlobales, aplicarCuotaGlobal, eliminarCuotaGlobal,
 } from '../controllers/asociados.controller'
 
 const router = Router()
@@ -30,9 +31,14 @@ router.get('/:id/pagos',         listarPagos)
 router.post('/:id/pagos',        crearPago)
 router.delete('/:id/pagos/:pid', eliminarPago)
 
-// Cuotas por mes
+// Cuotas por mes (por asociado)
 router.get('/:id/cuotas',          listarCuotas)
 router.post('/:id/cuotas',         upsertCuota)
 router.delete('/:id/cuotas/:mes',  eliminarCuota)
+
+// Cuotas globales (todos los asociados)
+router.get('/cuotas/global',          listarCuotasGlobales)
+router.post('/cuotas/global',         aplicarCuotaGlobal)
+router.delete('/cuotas/global/:mes',  eliminarCuotaGlobal)
 
 export default router

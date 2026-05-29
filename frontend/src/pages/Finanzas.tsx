@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, Users } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   Gasto, ResumenGastos, CATEGORIAS, SUBCATEGORIAS, MEDIOS_PAGO,
@@ -92,7 +92,7 @@ function Selector({ value, onChange, children }: { value: string; onChange: (v: 
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-type Tab = 'gastos' | 'ingresos'
+type Tab = 'gastos' | 'ingresos' | 'cuotas'
 
 export default function Finanzas() {
   const [tab, setTab] = useState<Tab>('gastos')
@@ -107,10 +107,14 @@ export default function Finanzas() {
         <TabBtn active={tab === 'ingresos'} onClick={() => setTab('ingresos')} icon={<TrendingUp className="w-4 h-4" />}>
           Ingresos
         </TabBtn>
+        <TabBtn active={tab === 'cuotas'} onClick={() => setTab('cuotas')} icon={<Users className="w-4 h-4" />}>
+          Cuotas
+        </TabBtn>
       </div>
 
       {tab === 'gastos'   && <SeccionGastos />}
       {tab === 'ingresos' && <SeccionIngresos />}
+      {tab === 'cuotas'   && <SeccionCuotas />}
     </div>
   )
 }
@@ -497,6 +501,197 @@ function SeccionIngresos() {
         />
       )}
     </>
+  )
+}
+
+// ─── Sección Cuotas globales ──────────────────────────────────────────────────
+
+interface CuotaGlobal {
+  id: string; mes: string; monto: string; totalAsociados: number; creadoEn: string
+}
+
+const labelMes = (ym: string) => {
+  const [y, m] = ym.split('-')
+  return new Date(Number(y), Number(m) - 1, 1)
+    .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+}
+
+const opcionesMeses = () => {
+  const hoy = new Date()
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - 3 + i, 1)
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    return { value: val, label: labelMes(val) }
+  })
+}
+
+function SeccionCuotas() {
+  const [cuotas, setCuotas]       = useState<CuotaGlobal[]>([])
+  const [cargando, setCargando]   = useState(true)
+  const [mes, setMes]             = useState(mesActual())
+  const [monto, setMonto]         = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [resultado, setResultado] = useState<{ mes: string; actualizados: number } | null>(null)
+  const [confirmElim, setConfirmElim] = useState<string | null>(null)
+
+  async function cargar() {
+    setCargando(true)
+    try {
+      const { data } = await api.get('/asociados/cuotas/global')
+      setCuotas(data)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  useEffect(() => { cargar() }, [])
+
+  async function aplicar() {
+    if (!monto || Number(monto) <= 0) return
+    setGuardando(true)
+    setResultado(null)
+    try {
+      const { data } = await api.post('/asociados/cuotas/global', { mes, monto: Number(monto) })
+      setResultado({ mes, actualizados: data.actualizados })
+      setMonto('')
+      cargar()
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function eliminar(mes: string) {
+    await api.delete(`/asociados/cuotas/global/${mes}`)
+    setConfirmElim(null)
+    setResultado(null)
+    cargar()
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Panel definir cuota global */}
+      <div className="bg-white rounded-xl border border-slate-100 p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-slate-900">Definir cuota para todos los asociados</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Elegí un mes y un monto. Se va a aplicar a todos los asociados activos y pendientes al mismo tiempo.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div>
+            <label className="etiqueta">Mes</label>
+            <select className="campo" value={mes} onChange={e => setMes(e.target.value)}>
+              {opcionesMeses().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="etiqueta">Monto (ARS)</label>
+            <input
+              type="number" step="0.01" min="0" placeholder="Ej: 6000"
+              className="campo"
+              value={monto}
+              onChange={e => setMonto(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={aplicar}
+            disabled={guardando || !monto}
+            className="btn-primario px-5 py-2.5 flex items-center justify-center gap-2"
+          >
+            {guardando
+              ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Aplicando...</>
+              : <><Users className="w-4 h-4" />Aplicar a todos</>
+            }
+          </button>
+        </div>
+
+        {/* Resultado */}
+        {resultado && (
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            Cuota de {ars(Number(monto || cuotas.find(c => c.mes === resultado.mes)?.monto || 0))} aplicada a <strong>{resultado.actualizados} asociados</strong> para {labelMes(resultado.mes)}.
+          </div>
+        )}
+      </div>
+
+      {/* Historial de cuotas globales */}
+      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900">Historial de cuotas globales</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Cuotas aplicadas a todos los asociados por mes</p>
+        </div>
+
+        {cargando ? (
+          <div className="flex items-center justify-center py-16 text-slate-400 text-sm">Cargando...</div>
+        ) : cuotas.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+            <Users className="w-8 h-8 opacity-30" />
+            <p className="text-sm">No hay cuotas globales definidas todavía.</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left">
+                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Mes</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Asociados</th>
+                <th className="px-6 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {cuotas.map(c => {
+                const esActual = c.mes === mesActual()
+                return (
+                  <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-800 capitalize">{labelMes(c.mes)}</span>
+                        {esActual && (
+                          <span className="text-xs font-medium text-acento-600 bg-acento-50 border border-acento-200 px-2 py-0.5 rounded-full">Actual</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-900">{ars(Number(c.monto))}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                        <Users className="w-3.5 h-3.5" />{c.totalAsociados} asociados
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <button
+                          onClick={() => { setMes(c.mes); setMonto(String(Number(c.monto))) }}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmElim(c.mes)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {confirmElim && (
+        <ModalConfirmElim
+          titulo="¿Eliminar cuota global?"
+          onCancelar={() => setConfirmElim(null)}
+          onConfirmar={() => eliminar(confirmElim)}
+        />
+      )}
+    </div>
   )
 }
 
