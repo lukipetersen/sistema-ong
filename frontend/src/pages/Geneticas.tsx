@@ -21,7 +21,9 @@ function authHeaders() {
   return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
 }
 
-// ─── Pequeños badges reutilizables ──────────────────────────────────────────
+type SalaFiltro = '' | 'SALA_1' | 'SALA_2'
+
+// ─── Badges ─────────────────────────────────────────────────────────────────
 
 function BadgeLote({ estado }: { estado: Lote['estado'] }) {
   return (
@@ -36,6 +38,33 @@ function BadgePlanta({ estado }: { estado: Planta['estado'] }) {
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_PLANTA_COLOR[estado]}`}>
       {ESTADO_PLANTA_LABELS[estado]}
     </span>
+  )
+}
+
+// ─── Selector de sala ────────────────────────────────────────────────────────
+
+function SalaSelector({
+  valor, onChange,
+}: {
+  valor: SalaFiltro
+  onChange: (v: SalaFiltro) => void
+}) {
+  return (
+    <div className="mb-6 flex gap-2">
+      {(['', 'SALA_1', 'SALA_2'] as SalaFiltro[]).map(s => (
+        <button
+          key={s}
+          onClick={() => onChange(s)}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            valor === s
+              ? 'bg-green-600 text-white shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          {s === '' ? 'Todas las salas' : SALA_LABELS[s]}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -66,6 +95,182 @@ function ModalConfirm({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Vista: inventario por sala ──────────────────────────────────────────────
+
+function VistaLotesPorSala({
+  sala, onVerLote, onVerGenetica,
+}: {
+  sala: 'SALA_1' | 'SALA_2'
+  onVerLote: (l: Lote) => void
+  onVerGenetica: (id: string, nombre: string) => void
+}) {
+  const [lotes, setLotes]       = useState<Lote[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+  const [error, setError]       = useState('')
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    try {
+      const r = await fetch(`${API}/api/lotes?sala=${sala}&limit=500`, { headers: authHeaders() })
+      const d = await r.json()
+      setLotes(Array.isArray(d.lotes) ? d.lotes : [])
+    } catch { setError('Error al cargar lotes') }
+    finally  { setCargando(false) }
+  }, [sala])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const lotesFiltrados = lotes.filter(l => {
+    if (filtroEstado && l.estado !== filtroEstado) return false
+    if (busqueda) {
+      const t = busqueda.toLowerCase()
+      return (
+        l.codigo.toLowerCase().includes(t) ||
+        l.genetica.nombre.toLowerCase().includes(t) ||
+        (l.observaciones ?? '').toLowerCase().includes(t)
+      )
+    }
+    return true
+  })
+
+  const totalPlantas   = lotes.reduce((s, l) => s + l.totalPlantas, 0)
+  const plantasActivas = lotes.reduce((s, l) => s + l.plantasActivas, 0)
+  const lotesActivos   = lotes.filter(l => ['PRODUCCION', 'ACTIVO'].includes(l.estado)).length
+
+  const lotesCount = Object.fromEntries(
+    Object.keys(ESTADO_LOTE_LABELS).map(e => [e, lotes.filter(l => l.estado === e).length]),
+  )
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">{SALA_LABELS[sala]}</h1>
+        <p className="text-sm text-gray-500">{lotes.length} lote{lotes.length !== 1 ? 's' : ''} en esta sala</p>
+      </div>
+
+      {/* Resumen */}
+      <div className="mb-6 grid grid-cols-3 gap-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <p className="text-2xl font-bold text-green-700">{lotesActivos}</p>
+          <p className="text-xs text-gray-500">Lotes activos</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <p className="text-2xl font-bold text-gray-900">{totalPlantas}</p>
+          <p className="text-xs text-gray-500">Total plantas</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center shadow-sm">
+          <p className="text-2xl font-bold text-green-700">{plantasActivas}</p>
+          <p className="text-xs text-gray-500">Plantas activas</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />{error}
+          <button onClick={() => setError('')} className="ml-auto"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {/* Filtros por estado */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => setFiltroEstado('')}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${!filtroEstado ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+        >
+          Todos ({lotes.length})
+        </button>
+        {Object.entries(ESTADO_LOTE_LABELS).map(([e, l]) => lotesCount[e] > 0 && (
+          <button
+            key={e}
+            onClick={() => setFiltroEstado(filtroEstado === e ? '' : e)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              filtroEstado === e ? ESTADO_LOTE_COLOR[e as Lote['estado']] + ' ring-2 ring-offset-1 ring-green-400' : ESTADO_LOTE_COLOR[e as Lote['estado']] + ' opacity-80 hover:opacity-100'
+            }`}
+          >
+            {l} ({lotesCount[e]})
+          </button>
+        ))}
+      </div>
+
+      {/* Búsqueda */}
+      <div className="mb-4 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          placeholder="Buscar por código o genética..."
+          className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+        />
+      </div>
+
+      {cargando ? (
+        <div className="flex justify-center py-16 text-gray-400">Cargando...</div>
+      ) : lotesFiltrados.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
+          <Layers className="h-12 w-12 opacity-30" />
+          <p>{lotes.length === 0 ? 'No hay lotes en esta sala.' : 'Sin resultados.'}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left">Lote</th>
+                <th className="px-4 py-3 text-left">Genética</th>
+                <th className="px-4 py-3 text-left">Estado</th>
+                <th className="px-4 py-3 text-right">Plantas</th>
+                <th className="px-4 py-3 text-right">Activas</th>
+                <th className="px-4 py-3 text-right">Selec.</th>
+                <th className="px-4 py-3 text-left">Inicio</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {lotesFiltrados.map(l => (
+                <tr key={l.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => onVerLote(l)}
+                      className="font-mono text-sm font-semibold text-green-700 hover:underline"
+                    >
+                      {l.codigo}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => onVerGenetica(l.genetica.id, l.genetica.nombre)}
+                      className="text-gray-700 hover:text-green-700 hover:underline"
+                    >
+                      {l.genetica.nombre}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3"><BadgeLote estado={l.estado} /></td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-900">{l.totalPlantas}</td>
+                  <td className="px-4 py-3 text-right text-green-700 font-medium">{l.plantasActivas}</td>
+                  <td className="px-4 py-3 text-right text-purple-700 font-medium">{l.plantasSeleccionadas}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {new Date(l.fechaInicio).toLocaleDateString('es-AR')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => onVerLote(l)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-700"
+                    >
+                      Ver plantas <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -249,11 +454,10 @@ function VistaLista({
 // ─── Vista: detalle de genética + sus lotes ──────────────────────────────────
 
 function VistaGenetica({
-  geneticaId,
-  onVolver,
-  onVerLote,
+  geneticaId, salaFiltro, onVolver, onVerLote,
 }: {
   geneticaId: string
+  salaFiltro: SalaFiltro
   onVolver: () => void
   onVerLote: (l: Lote) => void
 }) {
@@ -308,15 +512,25 @@ function VistaGenetica({
   if (cargando) return <div className="flex justify-center py-16 text-gray-400">Cargando...</div>
   if (!data)    return <div className="py-16 text-center text-red-500">{error || 'No encontrado'}</div>
 
+  const lotesMostrados = salaFiltro
+    ? data.lotes.filter(l => l.sala === salaFiltro)
+    : data.lotes
+
   return (
     <div>
       {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
         <button onClick={onVolver} className="flex items-center gap-1 hover:text-green-700">
-          <ChevronLeft className="h-4 w-4" /> Genéticas
+          <ChevronLeft className="h-4 w-4" />
+          {salaFiltro ? SALA_LABELS[salaFiltro] : 'Genéticas'}
         </button>
         <ChevronRight className="h-4 w-4" />
         <span className="font-medium text-gray-900">{data.nombre}</span>
+        {salaFiltro && (
+          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+            {SALA_LABELS[salaFiltro]}
+          </span>
+        )}
       </div>
 
       {/* Header */}
@@ -324,6 +538,11 @@ function VistaGenetica({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{data.nombre}</h1>
           {data.descripcion && <p className="mt-1 text-sm text-gray-500">{data.descripcion}</p>}
+          {salaFiltro && (
+            <p className="mt-1 text-sm text-gray-400">
+              {lotesMostrados.length} de {data.lotes.length} lotes en {SALA_LABELS[salaFiltro]}
+            </p>
+          )}
         </div>
         <button
           onClick={() => setModalLote({ abierto: true, lote: null })}
@@ -342,14 +561,18 @@ function VistaGenetica({
       )}
 
       {/* Lotes */}
-      {data.lotes.length === 0 ? (
+      {lotesMostrados.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
           <Layers className="h-12 w-12 opacity-30" />
-          <p>No hay lotes para esta genética.</p>
+          <p>
+            {data.lotes.length === 0
+              ? 'No hay lotes para esta genética.'
+              : `No hay lotes de esta genética en ${SALA_LABELS[salaFiltro as 'SALA_1' | 'SALA_2']}.`}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {data.lotes.map(l => (
+          {lotesMostrados.map(l => (
             <div key={l.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -427,13 +650,13 @@ function VistaGenetica({
 // ─── Vista: detalle de lote + plantas ────────────────────────────────────────
 
 function VistaLote({
-  loteId,
-  onVolver,
-  onVolverGenetica,
+  loteId, salaFiltro, onVolver, onVolverGenetica, onVolverSala,
 }: {
   loteId: string
+  salaFiltro: SalaFiltro
   onVolver: () => void
   onVolverGenetica: () => void
+  onVolverSala: () => void
 }) {
   const [data, setData]               = useState<LoteDetalle | null>(null)
   const [cargando, setCargando]       = useState(true)
@@ -506,12 +729,24 @@ function VistaLote({
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
-        <button onClick={onVolverGenetica} className="hover:text-green-700">Genéticas</button>
-        <ChevronRight className="h-4 w-4" />
-        <button onClick={onVolver} className="flex items-center gap-1 hover:text-green-700">
-          <ChevronLeft className="h-3 w-3" /> {data.genetica.nombre}
-        </button>
+      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+        {salaFiltro ? (
+          <>
+            <button onClick={onVolverSala} className="hover:text-green-700">{SALA_LABELS[salaFiltro]}</button>
+            <ChevronRight className="h-4 w-4" />
+            <button onClick={onVolver} className="flex items-center gap-1 hover:text-green-700">
+              <ChevronLeft className="h-3 w-3" /> {data.genetica.nombre}
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={onVolverGenetica} className="hover:text-green-700">Genéticas</button>
+            <ChevronRight className="h-4 w-4" />
+            <button onClick={onVolver} className="flex items-center gap-1 hover:text-green-700">
+              <ChevronLeft className="h-3 w-3" /> {data.genetica.nombre}
+            </button>
+          </>
+        )}
         <ChevronRight className="h-4 w-4" />
         <span className="font-mono font-medium text-gray-900">{data.codigo}</span>
       </div>
@@ -672,31 +907,65 @@ function VistaLote({
 
 // ─── Componente raíz ─────────────────────────────────────────────────────────
 
-type Vista = { tipo: 'lista' } | { tipo: 'genetica'; id: string } | { tipo: 'lote'; id: string; geneticaId: string }
+type Vista =
+  | { tipo: 'lista' }
+  | { tipo: 'genetica'; id: string; nombre: string }
+  | { tipo: 'lote'; id: string; geneticaId: string; geneticaNombre: string }
 
 export default function Geneticas() {
-  const [vista, setVista] = useState<Vista>({ tipo: 'lista' })
+  const [vista, setVista]           = useState<Vista>({ tipo: 'lista' })
+  const [salaFiltro, setSalaFiltro] = useState<SalaFiltro>('')
+
+  function cambiarSala(sala: SalaFiltro) {
+    setSalaFiltro(sala)
+    setVista({ tipo: 'lista' })
+  }
+
+  function irALote(l: Lote) {
+    setVista({ tipo: 'lote', id: l.id, geneticaId: l.genetica?.id ?? '', geneticaNombre: l.genetica?.nombre ?? '' })
+  }
+
+  function irAGenetica(id: string, nombre: string) {
+    setVista({ tipo: 'genetica', id, nombre })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {vista.tipo === 'lista' && (
+        <SalaSelector valor={salaFiltro} onChange={cambiarSala} />
+
+        {vista.tipo === 'lista' && !salaFiltro && (
           <VistaLista
-            onVerGenetica={g => setVista({ tipo: 'genetica', id: g.id })}
+            onVerGenetica={g => setVista({ tipo: 'genetica', id: g.id, nombre: g.nombre })}
           />
         )}
+
+        {vista.tipo === 'lista' && salaFiltro && (
+          <VistaLotesPorSala
+            sala={salaFiltro}
+            onVerLote={irALote}
+            onVerGenetica={irAGenetica}
+          />
+        )}
+
         {vista.tipo === 'genetica' && (
           <VistaGenetica
             geneticaId={vista.id}
+            salaFiltro={salaFiltro}
             onVolver={() => setVista({ tipo: 'lista' })}
-            onVerLote={l => setVista({ tipo: 'lote', id: l.id, geneticaId: vista.id })}
+            onVerLote={irALote}
           />
         )}
+
         {vista.tipo === 'lote' && (
           <VistaLote
             loteId={vista.id}
-            onVolver={() => setVista({ tipo: 'genetica', id: (vista as Extract<Vista, { tipo: 'lote' }>).geneticaId })}
+            salaFiltro={salaFiltro}
+            onVolver={() =>
+              setVista({ tipo: 'genetica', id: (vista as Extract<Vista, { tipo: 'lote' }>).geneticaId, nombre: (vista as Extract<Vista, { tipo: 'lote' }>).geneticaNombre })
+            }
             onVolverGenetica={() => setVista({ tipo: 'lista' })}
+            onVolverSala={() => setVista({ tipo: 'lista' })}
           />
         )}
       </div>
