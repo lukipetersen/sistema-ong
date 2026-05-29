@@ -67,6 +67,27 @@ enum EstadoIngreso {
   PENDIENTE
 }
 
+enum EstadoLote {
+  PRODUCCION
+  ACTIVO
+  FINALIZADO
+  DESCARTADO
+  ARCHIVADO
+}
+
+enum EstadoPlanta {
+  ACTIVA
+  SELECCIONADA
+  CLONADA
+  DESCARTADA
+  ARCHIVADA
+}
+
+enum Sala {
+  SALA_1
+  SALA_2
+}
+
 enum EstadoAsociado {
   ACTIVO
   PENDIENTE
@@ -196,6 +217,76 @@ model Ingreso {
   @@map("ingresos")
 }
 
+// ─── Genéticas ─────────────────────────────────────────────────────────────
+
+model Genetica {
+  id            String   @id @default(cuid())
+  nombre        String   @unique
+  descripcion   String?
+  observaciones String?
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  lotes        Lote[]
+  seguimientos SeguimientoTerapeutico[]
+
+  @@index([nombre])
+  @@map("geneticas")
+}
+
+model Lote {
+  id                String     @id @default(cuid())
+  codigo            String     @unique
+  geneticaId        String
+  genetica          Genetica   @relation(fields: [geneticaId], references: [id])
+  sala              Sala
+  fechaInicio       DateTime
+  fechaFinalizacion DateTime?
+  estado            EstadoLote @default(PRODUCCION)
+  observaciones     String?
+  creadoEn          DateTime   @default(now())
+  actualizadoEn     DateTime   @updatedAt
+
+  plantas      Planta[]
+  historial    HistorialLote[]
+  seguimientos SeguimientoTerapeutico[]
+
+  @@index([geneticaId])
+  @@index([estado])
+  @@map("lotes")
+}
+
+model Planta {
+  id            String       @id @default(cuid())
+  codigo        String       @unique
+  loteId        String
+  lote          Lote         @relation(fields: [loteId], references: [id])
+  alias         String?
+  estado        EstadoPlanta @default(ACTIVA)
+  observaciones String?
+  creadoEn      DateTime     @default(now())
+  actualizadoEn DateTime     @updatedAt
+
+  seguimientos SeguimientoTerapeutico[]
+
+  @@index([loteId])
+  @@index([estado])
+  @@index([alias])
+  @@map("plantas")
+}
+
+model HistorialLote {
+  id       String   @id @default(cuid())
+  loteId   String
+  lote     Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  accion   String
+  detalles String?
+  creadoEn DateTime @default(now())
+
+  @@index([loteId])
+  @@map("historial_lotes")
+}
+
 // ─── Asociados ─────────────────────────────────────────────────────────────
 
 model Asociado {
@@ -241,8 +332,11 @@ model SeguimientoTerapeutico {
   continuidad   Boolean  @default(true)
 
   geneticaId String?
+  genetica   Genetica? @relation(fields: [geneticaId], references: [id])
   loteId     String?
+  lote       Lote?     @relation(fields: [loteId], references: [id])
   plantaId   String?
+  planta     Planta?   @relation(fields: [plantaId], references: [id])
 
   creadoEn DateTime @default(now())
 

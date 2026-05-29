@@ -7,6 +7,9 @@ import authRoutes from './routes/auth'
 import gastosRoutes from './routes/gastos'
 import ingresosRoutes from './routes/ingresos'
 import asociadosRoutes from './routes/asociados'
+import geneticasRoutes from './routes/geneticas'
+import lotesRoutes from './routes/lotes'
+import plantasRoutes from './routes/plantas'
 import { manejadorErrores } from './middleware/errores'
 
 const app = express()
@@ -38,6 +41,9 @@ app.use('/api/auth', authRoutes)
 app.use('/api/gastos', gastosRoutes)
 app.use('/api/ingresos', ingresosRoutes)
 app.use('/api/asociados', asociadosRoutes)
+app.use('/api/geneticas', geneticasRoutes)
+app.use('/api/lotes', lotesRoutes)
+app.use('/api/plantas', plantasRoutes)
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
