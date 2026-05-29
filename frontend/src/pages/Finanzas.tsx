@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, Users } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, Upload, Users } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   Gasto, ResumenGastos, CATEGORIAS, SUBCATEGORIAS, MEDIOS_PAGO,
@@ -9,6 +9,7 @@ import {
 } from '@/types/ingresos'
 import ModalGasto from '@/components/gastos/ModalGasto'
 import ModalIngreso from '@/components/ingresos/ModalIngreso'
+import ModalImportarGastos from '@/components/gastos/ModalImportarGastos'
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ function SeccionGastos() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [gastoEditar, setGastoEditar]   = useState<Gasto | null>(null)
   const [confirmElim, setConfirmElim]   = useState<string | null>(null)
+  const [modalImportar, setModalImportar] = useState(false)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -210,9 +212,14 @@ function SeccionGastos() {
             <option value="PENDIENTE">Pendiente</option>
           </Selector>
         </div>
-        <button onClick={abrirNuevo} className="btn-primario flex items-center gap-2 px-4 py-2">
-          <Plus className="w-4 h-4" /> Nuevo gasto
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setModalImportar(true)} className="flex items-center gap-2 px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors">
+            <Upload className="w-4 h-4" /> Importar Excel
+          </button>
+          <button onClick={abrirNuevo} className="btn-primario flex items-center gap-2 px-4 py-2">
+            <Plus className="w-4 h-4" /> Nuevo gasto
+          </button>
+        </div>
       </div>
 
       {/* Tabla */}
@@ -299,6 +306,14 @@ function SeccionGastos() {
           gasto={gastoEditar}
           onGuardado={() => { cerrarModal(); cargar() }}
           onCerrar={cerrarModal}
+        />
+      )}
+
+      {/* Modal importar Excel */}
+      {modalImportar && (
+        <ModalImportarGastos
+          onImportado={cargar}
+          onCerrar={() => setModalImportar(false)}
         />
       )}
     </>
