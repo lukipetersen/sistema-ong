@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { X, AlertCircle } from 'lucide-react'
 import { api } from '@/lib/api'
 import { MEDIOS_PAGO } from '@/types/gastos'
-import { Asociado, PagoAsociado } from '@/types/asociados'
+import { Asociado, PagoAsociado, CuotaMes } from '@/types/asociados'
 
 const ars = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 
@@ -25,14 +25,14 @@ type FormData = z.infer<typeof esquema>
 
 interface Props {
   asociadoId: string
-  asociado?: Asociado & { pagos: PagoAsociado[] }
+  asociado?: Asociado & { pagos: PagoAsociado[]; cuotas: CuotaMes[] }
   onGuardado: () => void
   onCerrar: () => void
 }
 
 export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }: Props) {
   const hoy = new Date().toISOString().split('T')[0]
-  const [saldoMes, setSaldoMes] = useState<{ pagado: number; falta: number } | null>(null)
+  const [saldoMes, setSaldoMes] = useState<{ cuota: number; pagado: number; falta: number } | null>(null)
 
   const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(esquema),
@@ -40,16 +40,23 @@ export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }
   })
 
   const mesSeleccionado = watch('mesCuota')
-  const cuota = asociado?.cuotaMensual ? Number(asociado.cuotaMensual) : null
+
+  // Cuota vigente para el mes seleccionado: tabla cuotas_mensuales → cuotaMensual por defecto
+  const cuotaDelMes = (() => {
+    if (!asociado) return null
+    const entrada = asociado.cuotas?.find(c => c.mes === mesSeleccionado)
+    if (entrada) return Number(entrada.monto)
+    return asociado.cuotaMensual ? Number(asociado.cuotaMensual) : null
+  })()
 
   // Calcular saldo del mes seleccionado
   useEffect(() => {
-    if (!cuota || !mesSeleccionado || !asociado?.pagos) { setSaldoMes(null); return }
+    if (!cuotaDelMes || !mesSeleccionado || !asociado?.pagos) { setSaldoMes(null); return }
     const pagado = asociado.pagos
       .filter(p => p.mesCuota === mesSeleccionado)
       .reduce((s, p) => s + Number(p.monto), 0)
-    setSaldoMes({ pagado, falta: Math.max(0, cuota - pagado) })
-  }, [mesSeleccionado, cuota, asociado?.pagos])
+    setSaldoMes({ cuota: cuotaDelMes, pagado, falta: Math.max(0, cuotaDelMes - pagado) })
+  }, [mesSeleccionado, cuotaDelMes, asociado?.pagos])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar() }
@@ -96,18 +103,20 @@ export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }
             {errors.mesCuota && <p className="msg-error mt-1"><AlertCircle className="w-3 h-3" />{errors.mesCuota.message}</p>}
           </div>
 
-          {/* Saldo del mes si hay cuota definida */}
-          {cuota && saldoMes !== null && (
+          {/* Saldo del mes si hay cuota definida para ese mes */}
+          {saldoMes !== null && (
             <div className={`rounded-lg px-4 py-3 text-sm ${saldoMes.falta === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
               {saldoMes.falta === 0
-                ? `✓ Cuota ${ars(cuota)} ya cubierta para este mes`
-                : <>Cuota: <strong>{ars(cuota)}</strong> · Pagado: <strong>{ars(saldoMes.pagado)}</strong> · Falta: <strong>{ars(saldoMes.falta)}</strong></>
+                ? `✓ Cuota ${ars(saldoMes.cuota)} ya cubierta para este mes`
+                : <>Cuota: <strong>{ars(saldoMes.cuota)}</strong> · Pagado: <strong>{ars(saldoMes.pagado)}</strong> · Falta: <strong>{ars(saldoMes.falta)}</strong></>
               }
             </div>
           )}
 
-          {cuota && (
-            <p className="text-xs text-slate-400">Cuota mensual del asociado: {ars(cuota)}</p>
+          {!saldoMes && !cuotaDelMes && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              Sin cuota definida para este mes. Podés configurarla en la ficha del asociado.
+            </p>
           )}
 
           <div className="grid grid-cols-2 gap-4">

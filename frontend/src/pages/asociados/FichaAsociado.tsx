@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus, Trash2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, AlertCircle, CheckCircle2, Clock, X } from 'lucide-react'
 import { api } from '@/lib/api'
-import { Asociado, SeguimientoTerapeutico, PagoAsociado, LABEL_PATOLOGIA, LABEL_ESTADO, LABEL_CUOTA } from '@/types/asociados'
+import { Asociado, SeguimientoTerapeutico, PagoAsociado, CuotaMes, LABEL_PATOLOGIA, LABEL_ESTADO, LABEL_CUOTA } from '@/types/asociados'
 import { BadgeEstado, BadgeCuota } from './ListaAsociados'
 import ModalSeguimiento from '@/components/asociados/ModalSeguimiento'
 import ModalPago from '@/components/asociados/ModalPago'
@@ -11,18 +11,42 @@ const ars = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', c
 const fechaLarga = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric', timeZone:'UTC' })
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'UTC' })
 
+const mesActual = () => {
+  const h = new Date()
+  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`
+}
+
+// Genera etiqueta "mayo 2026" desde "2026-05"
+const labelMes = (ym: string) => {
+  const [y, m] = ym.split('-')
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+}
+
+// Genera lista de meses para el selector (6 atrás + actual + 3 adelante)
+const opcionesMeses = () => Array.from({ length: 10 }, (_, i) => {
+  const d = new Date()
+  d.setMonth(d.getMonth() - 6 + i)
+  const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  return { value: val, label: labelMes(val) }
+})
+
 type Tab = 'datos' | 'terapeutico' | 'financiero' | 'seguimientos'
+type AsociadoCompleto = Asociado & { seguimientos: SeguimientoTerapeutico[]; pagos: PagoAsociado[]; cuotas: CuotaMes[] }
 
 export default function FichaAsociado() {
   const { id }    = useParams<{ id: string }>()
   const navigate  = useNavigate()
-  const [asociado, setAsociado]   = useState<Asociado & { seguimientos: SeguimientoTerapeutico[]; pagos: PagoAsociado[] } | null>(null)
+  const [asociado, setAsociado]   = useState<AsociadoCompleto | null>(null)
   const [tab, setTab]             = useState<Tab>('datos')
   const [cargando, setCargando]   = useState(true)
   const [modalSeg, setModalSeg]   = useState(false)
   const [modalPago, setModalPago] = useState(false)
   const [segEditar, setSegEditar] = useState<SeguimientoTerapeutico | null>(null)
-  const [confirmElim, setConfirmElim] = useState<{ tipo: 'seg' | 'pago'; id: string } | null>(null)
+  const [confirmElim, setConfirmElim] = useState<{ tipo: 'seg' | 'pago' | 'cuota'; id: string } | null>(null)
+
+  // Estado formulario cuota por mes (inline)
+  const [formCuota, setFormCuota] = useState<{ mes: string; monto: string } | null>(null)
+  const [savingCuota, setSavingCuota] = useState(false)
 
   async function cargar() {
     setCargando(true)
@@ -48,11 +72,30 @@ export default function FichaAsociado() {
     cargar()
   }
 
+  async function eliminarCuota(mes: string) {
+    await api.delete(`/asociados/${id}/cuotas/${mes}`)
+    setConfirmElim(null)
+    cargar()
+  }
+
+  async function guardarCuota() {
+    if (!formCuota || !formCuota.monto || Number(formCuota.monto) <= 0) return
+    setSavingCuota(true)
+    try {
+      await api.post(`/asociados/${id}/cuotas`, { mes: formCuota.mes, monto: Number(formCuota.monto) })
+      setFormCuota(null)
+      cargar()
+    } finally {
+      setSavingCuota(false)
+    }
+  }
+
   if (cargando) return <div className="flex items-center justify-center py-20 text-slate-400 text-sm">Cargando...</div>
   if (!asociado) return <div className="text-center py-20 text-slate-400">Asociado no encontrado.</div>
 
   const totalPagado = asociado.pagos.reduce((s, p) => s + Number(p.monto), 0)
   const ultimoPago  = asociado.pagos[0] ?? null
+  const cuotaDefault = asociado.cuotaMensual ? Number(asociado.cuotaMensual) : null
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'datos',        label: 'Datos personales' },
@@ -137,7 +180,9 @@ export default function FichaAsociado() {
 
         {/* ── Financiero ── */}
         {tab === 'financiero' && (
-          <div className="space-y-5">
+          <div className="space-y-6">
+
+            {/* Resumen */}
             <div className="grid grid-cols-3 gap-4">
               <div className="rounded-xl bg-slate-50 p-4 text-center">
                 <p className="text-xs text-slate-500 mb-1">Total pagado</p>
@@ -153,34 +198,142 @@ export default function FichaAsociado() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Historial de pagos</h3>
-              <button onClick={() => setModalPago(true)} className="flex items-center gap-1.5 text-sm text-acento-600 hover:text-acento-700 font-medium">
-                <Plus className="w-3.5 h-3.5" /> Registrar pago
-              </button>
-            </div>
+            {/* ── Cuotas por mes ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700">Cuotas por mes</h3>
+                  {cuotaDefault && (
+                    <p className="text-xs text-slate-400 mt-0.5">Cuota base: {ars(cuotaDefault)} · Se aplica cuando no hay valor específico para el mes</p>
+                  )}
+                </div>
+                {!formCuota && (
+                  <button
+                    onClick={() => setFormCuota({ mes: mesActual(), monto: '' })}
+                    className="flex items-center gap-1.5 text-sm text-acento-600 hover:text-acento-700 font-medium"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Definir cuota
+                  </button>
+                )}
+              </div>
 
-            {asociado.pagos.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Sin pagos registrados.</p>
-            ) : (
-              <div className="divide-y divide-slate-50">
-                {asociado.pagos.map(p => (
-                  <div key={p.id} className="flex items-center justify-between py-3 group">
+              {/* Formulario inline para agregar/editar cuota */}
+              {formCuota && (
+                <div className="rounded-xl border border-acento-200 bg-acento-50/30 p-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Definir cuota para un mes</p>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{p.concepto || 'Pago'}</p>
-                      <p className="text-xs text-slate-400">{fechaLarga(p.fecha)}{p.medioPago ? ` · ${p.medioPago}` : ''}</p>
+                      <label className="etiqueta">Mes</label>
+                      <select
+                        className="campo"
+                        value={formCuota.mes}
+                        onChange={e => setFormCuota(f => f ? { ...f, mes: e.target.value } : f)}
+                      >
+                        {opcionesMeses().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <p className="font-semibold text-slate-900">{ars(Number(p.monto))}</p>
-                      <button onClick={() => setConfirmElim({ tipo: 'pago', id: p.id })}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div>
+                      <label className="etiqueta">Monto (ARS)</label>
+                      <input
+                        type="number" step="0.01" min="0" placeholder="0"
+                        className="campo"
+                        value={formCuota.monto}
+                        onChange={e => setFormCuota(f => f ? { ...f, monto: e.target.value } : f)}
+                      />
                     </div>
                   </div>
-                ))}
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setFormCuota(null)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={guardarCuota}
+                      disabled={savingCuota || !formCuota.monto}
+                      className="btn-primario px-4 py-1.5 text-sm flex items-center gap-2"
+                    >
+                      {savingCuota
+                        ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
+                        : 'Guardar'
+                      }
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista de cuotas definidas */}
+              {asociado.cuotas.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">
+                  {cuotaDefault ? 'Sin cuotas específicas por mes — se usa la cuota base.' : 'Sin cuotas definidas.'}
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {asociado.cuotas.map(c => (
+                    <div key={c.id} className="flex items-center justify-between py-3 group">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 capitalize">{labelMes(c.mes)}</p>
+                        {c.mes === mesActual() && (
+                          <span className="text-xs text-acento-600 font-medium">Mes actual</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold text-slate-900">{ars(Number(c.monto))}</p>
+                        <button
+                          onClick={() => setFormCuota({ mes: c.mes, monto: String(Number(c.monto)) })}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmElim({ tipo: 'cuota', id: c.mes })}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Historial de pagos ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">Historial de pagos</h3>
+                <button onClick={() => setModalPago(true)} className="flex items-center gap-1.5 text-sm text-acento-600 hover:text-acento-700 font-medium">
+                  <Plus className="w-3.5 h-3.5" /> Registrar pago
+                </button>
               </div>
-            )}
+
+              {asociado.pagos.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">Sin pagos registrados.</p>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {asociado.pagos.map(p => (
+                    <div key={p.id} className="flex items-center justify-between py-3 group">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{p.concepto || 'Pago'}</p>
+                        <p className="text-xs text-slate-400">
+                          {fechaLarga(p.fecha)}
+                          {p.mesCuota ? ` · ${labelMes(p.mesCuota)}` : ''}
+                          {p.medioPago ? ` · ${p.medioPago}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold text-slate-900">{ars(Number(p.monto))}</p>
+                        <button onClick={() => setConfirmElim({ tipo: 'pago', id: p.id })}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -262,8 +415,11 @@ export default function FichaAsociado() {
             <p className="text-slate-500 text-sm mb-5">Esta acción no se puede deshacer.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmElim(null)} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">Cancelar</button>
-              <button onClick={() => confirmElim.tipo === 'seg' ? eliminarSeg(confirmElim.id) : eliminarPago(confirmElim.id)}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">Eliminar</button>
+              <button onClick={() => {
+                if (confirmElim.tipo === 'seg')   eliminarSeg(confirmElim.id)
+                if (confirmElim.tipo === 'pago')  eliminarPago(confirmElim.id)
+                if (confirmElim.tipo === 'cuota') eliminarCuota(confirmElim.id)
+              }} className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">Eliminar</button>
             </div>
           </div>
         </div>

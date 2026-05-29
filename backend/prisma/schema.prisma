@@ -223,6 +223,7 @@ model Asociado {
 
   seguimientos SeguimientoTerapeutico[]
   pagos        PagoAsociado[]
+  cuotas       CuotaMes[]
 
   @@index([dni])
   @@index([estado])
@@ -247,6 +248,19 @@ model SeguimientoTerapeutico {
 
   @@index([asociadoId])
   @@map("seguimientos_terapeuticos")
+}
+
+model CuotaMes {
+  id         String   @id @default(cuid())
+  asociadoId String
+  asociado   Asociado @relation(fields: [asociadoId], references: [id], onDelete: Cascade)
+  mes        String   // YYYY-MM
+  monto      Decimal  @db.Decimal(14, 2)
+  creadoEn   DateTime @default(now())
+
+  @@unique([asociadoId, mes])
+  @@index([asociadoId])
+  @@map("cuotas_mensuales")
 }
 
 model PagoAsociado {

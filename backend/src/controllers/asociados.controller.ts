@@ -38,6 +38,11 @@ const esquemaPago = z.object({
   medioPago: z.enum(['EFECTIVO','TRANSFERENCIA','TARJETA_DEBITO','TARJETA_CREDITO','CHEQUE']).optional().nullable(),
 })
 
+const esquemaCuotaMes = z.object({
+  mes:   z.string().regex(/^\d{4}-\d{2}$/, 'Formato inválido (YYYY-MM)'),
+  monto: z.coerce.number().positive('El monto debe ser mayor a 0'),
+})
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildBusqueda(q: string) {
@@ -56,14 +61,25 @@ function buildBusqueda(q: string) {
 // ─── Helper: recalcular estadoCuota ──────────────────────────────────────────
 
 async function recalcularEstadoCuota(asociadoId: string) {
+  const ahora     = new Date()
+  const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
+
   const asociado = await prisma.asociado.findUnique({
     where: { id: asociadoId },
-    select: { cuotaMensual: true, pagos: true },
+    select: {
+      cuotaMensual: true,
+      pagos:  { select: { monto: true, mesCuota: true } },
+      cuotas: { where: { mes: mesActual }, select: { monto: true } },
+    },
   })
   if (!asociado) return
 
-  // Si no tiene cuota definida, solo verificar si hay pagos
-  if (!asociado.cuotaMensual) {
+  // Cuota del mes actual: tabla cuotas_mensuales primero, luego cuotaMensual por defecto
+  const cuotaMes = asociado.cuotas[0] ? Number(asociado.cuotas[0].monto) : null
+  const cuota    = cuotaMes ?? (asociado.cuotaMensual ? Number(asociado.cuotaMensual) : null)
+
+  // Si no hay cuota definida, solo verificar si hay pagos
+  if (!cuota) {
     const tienePagos = asociado.pagos.length > 0
     await prisma.asociado.update({
       where: { id: asociadoId },
@@ -72,20 +88,15 @@ async function recalcularEstadoCuota(asociadoId: string) {
     return
   }
 
-  const cuota = Number(asociado.cuotaMensual)
-
-  // Mes actual en formato YYYY-MM
-  const ahora   = new Date()
-  const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
-
-  // Sumar pagos que corresponden al mes actual
-  const pagosDelMes = asociado.pagos.filter(p => p.mesCuota === mesActual)
-  const totalPagado = pagosDelMes.reduce((s, p) => s + Number(p.monto), 0)
+  // Sumar pagos del mes actual
+  const totalPagado = asociado.pagos
+    .filter(p => p.mesCuota === mesActual)
+    .reduce((s, p) => s + Number(p.monto), 0)
 
   let nuevoEstado: 'AL_DIA' | 'PARCIAL' | 'PENDIENTE'
-  if (totalPagado >= cuota)       nuevoEstado = 'AL_DIA'
-  else if (totalPagado > 0)       nuevoEstado = 'PARCIAL'
-  else                            nuevoEstado = 'PENDIENTE'
+  if (totalPagado >= cuota)  nuevoEstado = 'AL_DIA'
+  else if (totalPagado > 0)  nuevoEstado = 'PARCIAL'
+  else                       nuevoEstado = 'PENDIENTE'
 
   await prisma.asociado.update({
     where: { id: asociadoId },
@@ -190,6 +201,7 @@ export async function obtener(req: Request, res: Response) {
     include: {
       seguimientos: { orderBy: { fecha: 'desc' } },
       pagos:        { orderBy: { fecha: 'desc' } },
+      cuotas:       { orderBy: { mes: 'desc' } },
     },
   })
   if (!asociado) return res.status(404).json({ error: 'Asociado no encontrado.' })
@@ -379,6 +391,35 @@ export async function eliminarPago(req: Request, res: Response) {
     await prisma.ingreso.delete({ where: { id: pago.ingresoId } }).catch(() => {})
   }
 
+  await recalcularEstadoCuota(req.params.id)
+  res.json({ ok: true })
+}
+
+// ─── Cuotas por mes ───────────────────────────────────────────────────────────
+
+export async function listarCuotas(req: Request, res: Response) {
+  const cuotas = await prisma.cuotaMes.findMany({
+    where: { asociadoId: req.params.id },
+    orderBy: { mes: 'desc' },
+  })
+  res.json(cuotas)
+}
+
+export async function upsertCuota(req: Request, res: Response) {
+  const datos = esquemaCuotaMes.parse(req.body)
+  const cuota = await prisma.cuotaMes.upsert({
+    where:  { asociadoId_mes: { asociadoId: req.params.id, mes: datos.mes } },
+    update: { monto: datos.monto },
+    create: { asociadoId: req.params.id, mes: datos.mes, monto: datos.monto },
+  })
+  await recalcularEstadoCuota(req.params.id)
+  res.json(cuota)
+}
+
+export async function eliminarCuota(req: Request, res: Response) {
+  await prisma.cuotaMes.delete({
+    where: { asociadoId_mes: { asociadoId: req.params.id, mes: req.params.mes } },
+  }).catch(() => {})
   await recalcularEstadoCuota(req.params.id)
   res.json({ ok: true })
 }

@@ -35,6 +35,14 @@ export interface SeguimientoTerapeutico {
   creadoEn: string
 }
 
+export interface CuotaMes {
+  id: string
+  asociadoId: string
+  mes: string   // YYYY-MM
+  monto: string
+  creadoEn: string
+}
+
 export interface PagoAsociado {
   id: string
   asociadoId: string
