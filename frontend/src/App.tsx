@@ -10,6 +10,7 @@ import FichaAsociado from '@/pages/asociados/FichaAsociado'
 import FormularioAsociado from '@/pages/asociados/FormularioAsociado'
 import Proximamente from '@/pages/Proximamente'
 import Geneticas from '@/pages/Geneticas'
+import Reportes from '@/pages/Reportes'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
 
@@ -53,7 +54,7 @@ function Rutas() {
         <Route path="finanzas"      element={<Finanzas />} />
         <Route path="geneticas"     element={<Geneticas />} />
         <Route path="socios"        element={<Proximamente />} />
-        <Route path="reportes"      element={<Proximamente />} />
+        <Route path="reportes"      element={<Reportes />} />
         <Route path="configuracion" element={<Proximamente />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
