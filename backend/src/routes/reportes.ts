@@ -80,7 +80,7 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
     })
   } catch (e) {
     console.error('[reportes/dashboard]', e)
-    res.status(500).json({ error: 'Error al obtener dashboard', detalle: e instanceof Error ? e.message : String(e) })
+    res.status(500).json({ error: 'Error al obtener dashboard' })
   }
 })
 
@@ -154,7 +154,7 @@ router.get('/financiero', async (req: Request, res: Response) => {
     })
   } catch (e) {
     console.error('[reportes/financiero]', e)
-    res.status(500).json({ error: 'Error al obtener reporte financiero', detalle: e instanceof Error ? e.message : String(e) })
+    res.status(500).json({ error: 'Error al obtener reporte financiero' })
   }
 })
 
@@ -204,7 +204,7 @@ router.get('/asociados', async (_req: Request, res: Response) => {
     res.json({ porEstado, porPatologia, altasPorMes, sinSeguimientoReciente: sinSeguimiento, listado: todosAsociados })
   } catch (e) {
     console.error('[reportes/asociados]', e)
-    res.status(500).json({ error: 'Error al obtener reporte de asociados', detalle: e instanceof Error ? e.message : String(e) })
+    res.status(500).json({ error: 'Error al obtener reporte de asociados' })
   }
 })
 
@@ -255,7 +255,7 @@ router.get('/productivo', async (_req: Request, res: Response) => {
     res.json({ geneticas: resumenGeneticas, lotes, porEstadoLote, porSalaLote, porEstadoPlanta, totalPlantas: plantasAll.length })
   } catch (e) {
     console.error('[reportes/productivo]', e)
-    res.status(500).json({ error: 'Error al obtener reporte productivo', detalle: e instanceof Error ? e.message : String(e) })
+    res.status(500).json({ error: 'Error al obtener reporte productivo' })
   }
 })
 
