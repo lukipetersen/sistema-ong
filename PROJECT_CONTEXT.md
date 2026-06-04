@@ -9,7 +9,7 @@
 
 ### Deploy
 - **Frontend:** Vercel → `sistema-ong-frontend-nine.vercel.app` ✅ funcionando
-- **Backend:** Render (Web Service, Node + Docker) ✅ funcionando
+- **Backend:** Railway (Web Service, Docker) — migrando desde Render
 - **Base de datos:** **Supabase** (PostgreSQL) ✅ migrada y funcionando
 
 ### Login
@@ -52,13 +52,11 @@
 
 ## Historial de cambios importantes
 
-### Junio 2026 — Migración a Supabase
+### Junio 2026 — Migración a Supabase + Railway
 - Base de datos migrada de Neon a **Supabase** (por costos)
-- `schema.prisma` actualizado: se agregó `directUrl = env("DIRECT_URL")` para compatibilidad con el Transaction Pooler de Supabase
-- `render.yaml` actualizado: se agregó la variable `DIRECT_URL` (sync: false)
-- `DATABASE_URL` en Render → Transaction Pooler Supabase (puerto 6543)
-- `DIRECT_URL` en Render → conexión directa Supabase (puerto 5432)
-- Datos exportados con `pg_dump` desde Neon e importados con `psql` a Supabase
+- Backend migrado de Render a **Railway** (ya tenía `backend/Dockerfile` y `backend/railway.toml`)
+- `DATABASE_URL` en Railway → Session Pooler Supabase (puerto 5432, `aws-1-us-west-2.pooler.supabase.com`)
+- Datos exportados con `pg_dump` (PostgreSQL 18) desde Neon e importados con `psql` a Supabase
 
 ### Junio 2026 — Migración a Neon
 - Base de datos migrada de Render PostgreSQL a **Neon**
@@ -111,8 +109,8 @@ Las siguientes rutas muestran "Próximamente":
 
 ## Notas técnicas importantes
 
-- **Supabase (Prisma config):** `DATABASE_URL` apunta al Transaction Pooler (puerto 6543, `?pgbouncer=true`); `DIRECT_URL` apunta a la conexión directa (puerto 5432). El `schema.prisma` usa `directUrl = env("DIRECT_URL")` para que `prisma migrate deploy` no pase por PgBouncer.
-- **render.yaml:** Configurado con `rootDir: backend`, build/start commands. Tiene las vars `DATABASE_URL` y `DIRECT_URL` marcadas como `sync: false` (se setean manualmente en el dashboard).
+- **Supabase (Prisma config):** `DATABASE_URL` apunta al Session Pooler (puerto 5432, `aws-1-us-west-2.pooler.supabase.com`). Session pooler soporta DDL, por lo que no se necesita `directUrl`.
+- **Railway:** backend deployado con Docker (`backend/Dockerfile` + `backend/railway.toml`). La única var de DB necesaria es `DATABASE_URL`.
 - **Prisma migrate deploy** corre automáticamente al iniciar el backend (definido en `startCommand` de render.yaml)
 - **Decimal de Prisma:** Los campos `monto` son `Decimal` en Prisma — siempre usar `Number(v)` o `num(v)` al operar con ellos en JavaScript
 - El campo `VITE_API_URL` en Vercel debe apuntar a la URL del backend de Render (sin trailing slash)

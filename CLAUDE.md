@@ -54,13 +54,12 @@ sistema-ong/                  ← raíz (npm workspaces)
 | Servicio | Plataforma | Notas |
 |----------|-----------|-------|
 | Frontend | **Vercel** | Auto-deploy desde `main` |
-| Backend | **Render** (Web Service) | Docker, auto-deploy desde `main` |
+| Backend | **Railway** (Web Service) | Docker, auto-deploy desde `main` |
 | Base de datos | **Supabase** (PostgreSQL) | Migrada desde Neon en junio 2026 |
 
-- `DATABASE_URL` en Render → Transaction Pooler de Supabase (puerto 6543, con `?pgbouncer=true`)
-- `DIRECT_URL` en Render → conexión directa a Supabase (puerto 5432), usada por `prisma migrate deploy`
-- `VITE_API_URL` configurada en Vercel, apunta al backend de Render
-- El backend corre `npx prisma migrate deploy` al iniciar (via `startCommand` en render.yaml)
+- `DATABASE_URL` en Railway → Session Pooler de Supabase (puerto 5432, `aws-1-us-west-2.pooler.supabase.com`)
+- `VITE_API_URL` configurada en Vercel, apunta al backend de Railway
+- El backend corre `npx prisma migrate deploy` al iniciar (via Dockerfile CMD)
 
 ---
 
