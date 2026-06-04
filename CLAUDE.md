@@ -11,7 +11,7 @@
 | Frontend | React 18 + Vite + TypeScript + Tailwind CSS |
 | Backend | Node.js + Express + TypeScript |
 | ORM | Prisma v5 |
-| Base de datos | PostgreSQL (Neon — cloud) |
+| Base de datos | PostgreSQL (Supabase — cloud) |
 | Auth | JWT (jsonwebtoken + bcryptjs) |
 | Validación | Zod (frontend y backend) |
 | Formularios | React Hook Form + @hookform/resolvers |
@@ -55,9 +55,10 @@ sistema-ong/                  ← raíz (npm workspaces)
 |----------|-----------|-------|
 | Frontend | **Vercel** | Auto-deploy desde `main` |
 | Backend | **Render** (Web Service) | Docker, auto-deploy desde `main` |
-| Base de datos | **Neon** (PostgreSQL) | Migrada desde Render PostgreSQL en junio 2026 |
+| Base de datos | **Supabase** (PostgreSQL) | Migrada desde Neon en junio 2026 |
 
-- `DATABASE_URL` configurada como env var en Render, apunta a Neon
+- `DATABASE_URL` en Render → Transaction Pooler de Supabase (puerto 6543, con `?pgbouncer=true`)
+- `DIRECT_URL` en Render → conexión directa a Supabase (puerto 5432), usada por `prisma migrate deploy`
 - `VITE_API_URL` configurada en Vercel, apunta al backend de Render
 - El backend corre `npx prisma migrate deploy` al iniciar (via `startCommand` en render.yaml)
 
