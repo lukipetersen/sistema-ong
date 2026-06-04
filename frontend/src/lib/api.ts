@@ -9,7 +9,7 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -20,15 +20,15 @@ api.interceptors.response.use(
     const req = error.config
     if (error.response?.status === 401 && !req._reintentado) {
       req._reintentado = true
-      const rt = localStorage.getItem('refreshToken')
-      if (!rt) { localStorage.clear(); window.location.replace('/login'); return Promise.reject(error) }
+      const rt = sessionStorage.getItem('refreshToken')
+      if (!rt) { sessionStorage.clear(); window.location.replace('/login'); return Promise.reject(error) }
       try {
         const { data } = await axios.post(`${BASE}/api/auth/refresh`, { refreshToken: rt })
-        localStorage.setItem('token', data.token)
+        sessionStorage.setItem('token', data.token)
         req.headers.Authorization = `Bearer ${data.token}`
         return api(req)
       } catch {
-        localStorage.clear()
+        sessionStorage.clear()
         window.location.replace('/login')
       }
     }

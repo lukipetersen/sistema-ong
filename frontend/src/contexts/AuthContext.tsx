@@ -29,25 +29,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
     if (!token) { setCargando(false); return }
     api.get<UsuarioAuth>('/auth/yo')
       .then(({ data }) => setUsuario(data))
-      .catch(() => localStorage.clear())
+      .catch(() => sessionStorage.clear())
       .finally(() => setCargando(false))
   }, [])
 
   async function login(email: string, password: string) {
     const { data } = await api.post('/auth/login', { email, password })
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('refreshToken', data.refreshToken)
+    sessionStorage.setItem('token', data.token)
+    sessionStorage.setItem('refreshToken', data.refreshToken)
     setUsuario(data.usuario)
   }
 
   const logout = useCallback(async () => {
-    const rt = localStorage.getItem('refreshToken')
+    const rt = sessionStorage.getItem('refreshToken')
     try { if (rt) await api.post('/auth/logout', { refreshToken: rt }) } finally {
-      localStorage.clear()
+      sessionStorage.clear()
       setUsuario(null)
     }
   }, [])
