@@ -9,8 +9,8 @@
 
 ### Deploy
 - **Frontend:** Vercel → `sistema-ong-frontend-nine.vercel.app` ✅ funcionando
-- **Backend:** Railway (Web Service, Docker) — migrando desde Render
-- **Base de datos:** **Supabase** (PostgreSQL) ✅ migrada y funcionando
+- **Backend:** Railway → `sistema-ong-production-3588.up.railway.app` ✅ funcionando
+- **Base de datos:** **Supabase** (PostgreSQL) ✅ funcionando
 
 ### Login
 - Usuario admin creado y funcionando ✅
@@ -52,11 +52,15 @@
 
 ## Historial de cambios importantes
 
-### Junio 2026 — Migración a Supabase + Railway
-- Base de datos migrada de Neon a **Supabase** (por costos)
-- Backend migrado de Render a **Railway** (ya tenía `backend/Dockerfile` y `backend/railway.toml`)
-- `DATABASE_URL` en Railway → Session Pooler Supabase (puerto 5432, `aws-1-us-west-2.pooler.supabase.com`)
-- Datos exportados con `pg_dump` (PostgreSQL 18) desde Neon e importados con `psql` a Supabase
+### Junio 2026 — Sesión: migración infra + seguridad sesión
+- Base de datos migrada de Neon a **Supabase** (motivo: costos)
+- Backend migrado de Render a **Railway** (`sistema-ong-production-3588.up.railway.app`)
+- Conexión Prisma: `DATABASE_URL` → transaction pooler (puerto 6543, `?pgbouncer=true&connection_limit=1`), `DIRECT_URL` → session pooler (puerto 5432) para migraciones. `schema.prisma` usa `directUrl = env("DIRECT_URL")`
+- Contraseña Supabase cambiada a una sin caracteres especiales (el `%` en la password original rompía la URL en Railway)
+- `Dockerfile` actualizado para usar paths desde raíz del repo (`backend/prisma`, `backend/src`, etc.) porque Railway usa la raíz como contexto de build
+- `VITE_API_URL` en Vercel actualizada a la URL de Railway
+- Tokens de auth migrados de `localStorage` a `sessionStorage` → la sesión se cierra al cerrar la pestaña
+- Auto-logout por inactividad de 30 minutos agregado en `AuthContext.tsx`
 
 ### Junio 2026 — Migración a Neon
 - Base de datos migrada de Render PostgreSQL a **Neon**
@@ -109,8 +113,9 @@ Las siguientes rutas muestran "Próximamente":
 
 ## Notas técnicas importantes
 
-- **Supabase (Prisma config):** `DATABASE_URL` apunta al Session Pooler (puerto 5432, `aws-1-us-west-2.pooler.supabase.com`). Session pooler soporta DDL, por lo que no se necesita `directUrl`.
-- **Railway:** backend deployado con Docker (`backend/Dockerfile` + `backend/railway.toml`). La única var de DB necesaria es `DATABASE_URL`.
-- **Prisma migrate deploy** corre automáticamente al iniciar el backend (definido en `startCommand` de render.yaml)
-- **Decimal de Prisma:** Los campos `monto` son `Decimal` en Prisma — siempre usar `Number(v)` o `num(v)` al operar con ellos en JavaScript
-- El campo `VITE_API_URL` en Vercel debe apuntar a la URL del backend de Render (sin trailing slash)
+- **Supabase + Prisma:** `DATABASE_URL` = transaction pooler puerto 6543 con `?pgbouncer=true&connection_limit=1`; `DIRECT_URL` = session pooler puerto 5432 con `?connection_limit=1`. Ambas vars seteadas en Railway. `schema.prisma` tiene `directUrl = env("DIRECT_URL")`.
+- **Railway:** backend deployado con Docker. Dockerfile usa paths desde raíz del repo (`COPY backend/src`, etc.) porque Railway usa el repo root como build context aunque el Dockerfile path sea `backend/Dockerfile`. Vars requeridas: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `NODE_ENV=production`, `CORS_ORIGIN`.
+- **Prisma migrate deploy** corre automáticamente al iniciar (en Dockerfile CMD).
+- **Sesión:** tokens en `sessionStorage` (se borran al cerrar pestaña). Auto-logout a los 30 min de inactividad en `AuthContext.tsx`.
+- **Decimal de Prisma:** Los campos `monto` son `Decimal` en Prisma — siempre usar `Number(v)` al operar con ellos en JavaScript.
+- **VITE_API_URL** en Vercel apunta a `https://sistema-ong-production-3588.up.railway.app` (sin trailing slash).
