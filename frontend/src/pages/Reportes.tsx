@@ -63,7 +63,7 @@ function TarjetaKPI({ titulo, valor, sub, icono: Icono, color = 'green', variaci
     green:  'bg-green-50 text-green-700 border-green-200',
     red:    'bg-red-50 text-red-700 border-red-200',
     blue:   'bg-blue-50 text-blue-700 border-blue-200',
-    amber:  'bg-amber-50 text-amber-700 border-amber-200',
+    amber:  'bg-[#fdf6e0] text-[#8a6820] border-[#e8d880]',
     violet: 'bg-violet-50 text-violet-700 border-violet-200',
   }
   const varColor = variacion && variacion.valor >= 0 ? 'text-green-600' : 'text-red-600'
@@ -262,11 +262,11 @@ function SeccionDashboard() {
               </div>
             )}
             {aso.sinSeguimientoReciente > 0 && (
-              <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <AlertCircle className="h-5 w-5 shrink-0 text-amber-500" />
+              <div className="flex items-center gap-3 rounded-xl border border-[#e8d880] bg-[#fdf6e0] p-4">
+                <AlertCircle className="h-5 w-5 shrink-0 text-[#9a7020]" />
                 <div>
-                  <p className="font-semibold text-amber-800">{aso.sinSeguimientoReciente} asociado{aso.sinSeguimientoReciente !== 1 ? 's' : ''} sin seguimiento</p>
-                  <p className="text-xs text-amber-600">Sin seguimiento en los últimos 90 días</p>
+                  <p className="font-semibold text-[#6a5018]">{aso.sinSeguimientoReciente} asociado{aso.sinSeguimientoReciente !== 1 ? 's' : ''} sin seguimiento</p>
+                  <p className="text-xs text-[#8a6820]">Sin seguimiento en los últimos 90 días</p>
                 </div>
               </div>
             )}
@@ -487,7 +487,7 @@ function SeccionFinanciero() {
                         <td className="px-4 py-3 text-gray-500">{c.telefono ?? '—'}</td>
                         <td className="px-4 py-3 text-right">{formatPeso(Number(c.cuotaMensual ?? 0))}</td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.estadoCuota === 'VENCIDA' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.estadoCuota === 'VENCIDA' ? 'bg-red-100 text-red-700' : 'bg-[#fdf6e0] text-[#8a6820]'}`}>
                             {c.estadoCuota}
                           </span>
                         </td>
@@ -668,7 +668,7 @@ function SeccionAsociados() {
                       <td className="px-4 py-2.5 font-medium">{a.apellido}, {a.nombre}</td>
                       <td className="px-4 py-2.5 text-gray-500">{a.dni}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : a.estado === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.estado === 'ACTIVO' ? 'bg-[#edf5e0] text-[#4a7030]' : a.estado === 'PENDIENTE' ? 'bg-[#fdf6e0] text-[#8a6820]' : 'bg-[#f0ebe0] text-[#7a6840]'}`}>
                           {ESTADO_ASO[a.estado] ?? a.estado}
                         </span>
                       </td>

@@ -59,14 +59,14 @@ function Tarjeta({ titulo, valor, color, sub }: { titulo: string; valor: string;
     slate:   'bg-slate-900 text-white',
     blue:    'bg-blue-50 text-blue-900',
     violet:  'bg-violet-50 text-violet-900',
-    amber:   'bg-amber-50 text-amber-900',
-    emerald: 'bg-emerald-50 text-emerald-900',
+    amber:   'bg-[#fdf6e0] text-[#5a4010]',
+    emerald: 'bg-[#edf5e0] text-[#2a4a10]',
     teal:    'bg-teal-50 text-teal-900',
     sky:     'bg-sky-50 text-sky-900',
   }
   const subColor: Record<string, string> = {
     slate: 'text-slate-400', blue: 'text-blue-400', violet: 'text-violet-400',
-    amber: 'text-amber-600', emerald: 'text-emerald-500', teal: 'text-teal-500', sky: 'text-sky-500',
+    amber: 'text-[#9a7020]', emerald: 'text-[#5a7a30]', teal: 'text-teal-500', sky: 'text-sky-500',
   }
   return (
     <div className={`rounded-xl p-4 ${colores[color]}`}>
@@ -638,7 +638,7 @@ function SeccionCuotas() {
 
         {/* Resultado */}
         {resultado && (
-          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+          <div className="flex items-center gap-2 rounded-lg bg-[#edf5e0] border border-[#c0d8a0] px-4 py-3 text-sm text-[#4a7030]">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             Cuota de {ars(Number(monto || cuotas.find(c => c.mes === resultado.mes)?.monto || 0))} aplicada a <strong>{resultado.actualizados} asociados</strong> para {labelMes(resultado.mes)}.
           </div>
@@ -732,7 +732,7 @@ function BadgeCatGasto({ cat }: { cat: string }) {
     FIJOS:          'bg-blue-50 text-blue-700 border-blue-200',
     VARIABLES:      'bg-violet-50 text-violet-700 border-violet-200',
     ADMINISTRACION: 'bg-slate-100 text-slate-600 border-slate-200',
-    INVERSION:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+    INVERSION:      'bg-[#edf5e0] text-[#4a7030] border-[#c0d8a0]',
   }
   return (
     <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${estilos[cat] ?? ''}`}>
@@ -745,7 +745,7 @@ function BadgeTipo({ tipo }: { tipo: string }) {
   const estilos: Record<string, string> = {
     VENTA:    'bg-sky-50 text-sky-700 border-sky-200',
     CUOTA:    'bg-violet-50 text-violet-700 border-violet-200',
-    DONACION: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    DONACION: 'bg-[#edf5e0] text-[#4a7030] border-[#c0d8a0]',
   }
   return (
     <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${estilos[tipo] ?? ''}`}>
@@ -756,7 +756,7 @@ function BadgeTipo({ tipo }: { tipo: string }) {
 
 function BadgePendiente({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#8a6820] bg-[#fdf6e0] border border-[#e8d880] px-2 py-0.5 rounded-full">
       <AlertCircle className="w-3 h-3" />{label}
     </span>
   )
@@ -764,7 +764,7 @@ function BadgePendiente({ label }: { label: string }) {
 
 function BadgeCobrado({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#4a7030] bg-[#edf5e0] border border-[#c0d8a0] px-2 py-0.5 rounded-full">
       <CheckCircle2 className="w-3 h-3" />{label}
     </span>
   )

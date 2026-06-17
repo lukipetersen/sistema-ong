@@ -361,7 +361,7 @@ export default function FichaAsociado() {
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-xs font-semibold text-slate-500">{fechaLarga(s.fecha)}</span>
                           {s.continuidad
-                            ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3"/>Continúa</span>
+                            ? <span className="inline-flex items-center gap-1 text-xs text-[#4a7030] bg-[#edf5e0] border border-[#c0d8a0] px-2 py-0.5 rounded-full"><CheckCircle2 className="w-3 h-3"/>Continúa</span>
                             : <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full"><AlertCircle className="w-3 h-3"/>Discontinuado</span>
                           }
                         </div>
