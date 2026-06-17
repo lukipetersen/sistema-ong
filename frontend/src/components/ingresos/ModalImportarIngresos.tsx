@@ -278,10 +278,10 @@ export default function ModalImportarIngresos({ onImportado, onCerrar }: Props) 
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
               className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
-                dragOver ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                dragOver ? 'border-[#c9b97a] bg-[#faf7ef]' : 'border-[#e0d8c8] hover:border-[#c9b97a] hover:bg-[#f7f5ef]'
               }`}
             >
-              <Upload className={`w-8 h-8 ${dragOver ? 'text-emerald-500' : 'text-slate-300'}`} />
+              <Upload className={`w-8 h-8 ${dragOver ? 'text-[#c9b97a]' : 'text-[#d0c8b0]'}`} />
               <p className="text-sm text-slate-600 font-medium">Hacé click o arrastrá tu archivo aquí</p>
               <p className="text-xs text-slate-400">Formatos aceptados: .xlsx, .xls, .csv</p>
               <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFileChange} className="hidden" />
@@ -303,7 +303,7 @@ export default function ModalImportarIngresos({ onImportado, onCerrar }: Props) 
             <div className="px-6 pt-4 pb-3 border-b border-slate-100 flex items-center gap-4 flex-wrap">
               <span className="text-sm text-slate-500">{archivoNombre}</span>
               <div className="flex gap-3 ml-auto">
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#4a7030] bg-[#edf5e0] border border-[#c0d8a0] px-2.5 py-1 rounded-full">
                   <CheckCircle2 className="w-3 h-3" /> {validas.length} válidos
                 </span>
                 {invalidas.length > 0 && (
@@ -387,15 +387,15 @@ export default function ModalImportarIngresos({ onImportado, onCerrar }: Props) 
         {/* Paso 3: Resultado */}
         {paso === 'resultado' && resultado && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 gap-5 text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            <div className="w-16 h-16 rounded-full bg-[#edf5e0] flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-[#4a7030]" />
             </div>
             <div>
               <p className="text-lg font-semibold text-slate-900">
                 {resultado.importados} ingreso{resultado.importados !== 1 ? 's' : ''} importado{resultado.importados !== 1 ? 's' : ''}
               </p>
               {resultado.errores.length > 0 && (
-                <p className="text-sm text-amber-600 mt-1">
+                <p className="text-sm text-[#8a6820] mt-1">
                   {resultado.errores.length} fila{resultado.errores.length !== 1 ? 's' : ''} no se pudo importar
                 </p>
               )}

@@ -187,8 +187,8 @@ export default function ListaAsociados() {
 
 export function BadgeEstado({ e }: { e: string }) {
   const estilos: Record<string, string> = {
-    ACTIVO:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-    PENDIENTE:'bg-amber-50 text-amber-700 border-amber-200',
+    ACTIVO:   'bg-[#edf5e0] text-[#4a7030] border-[#c0d8a0]',
+    PENDIENTE:'bg-[#fdf6e0] text-[#8a6820] border-[#e8d880]',
     INACTIVO: 'bg-slate-100 text-slate-500 border-slate-200',
   }
   return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${estilos[e] ?? ''}`}>{LABEL_ESTADO[e as keyof typeof LABEL_ESTADO]}</span>
@@ -196,10 +196,10 @@ export function BadgeEstado({ e }: { e: string }) {
 
 export function BadgeCuota({ c }: { c: string }) {
   const estilos: Record<string, string> = {
-    AL_DIA:   'bg-emerald-50 text-emerald-700 border-emerald-200',
+    AL_DIA:   'bg-[#edf5e0] text-[#4a7030] border-[#c0d8a0]',
     PARCIAL:  'bg-blue-50 text-blue-700 border-blue-200',
     VENCIDA:  'bg-red-50 text-red-700 border-red-200',
-    PENDIENTE:'bg-amber-50 text-amber-700 border-amber-200',
+    PENDIENTE:'bg-[#fdf6e0] text-[#8a6820] border-[#e8d880]',
   }
   return <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${estilos[c] ?? ''}`}>{LABEL_CUOTA[c as keyof typeof LABEL_CUOTA]}</span>
 }

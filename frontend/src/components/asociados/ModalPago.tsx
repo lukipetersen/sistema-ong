@@ -105,7 +105,7 @@ export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }
 
           {/* Saldo del mes si hay cuota definida para ese mes */}
           {saldoMes !== null && (
-            <div className={`rounded-lg px-4 py-3 text-sm ${saldoMes.falta === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+            <div className={`rounded-lg px-4 py-3 text-sm ${saldoMes.falta === 0 ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-[#fdf6e0] text-[#8a6820]'}`}>
               {saldoMes.falta === 0
                 ? `✓ Cuota ${ars(saldoMes.cuota)} ya cubierta para este mes`
                 : <>Cuota: <strong>{ars(saldoMes.cuota)}</strong> · Pagado: <strong>{ars(saldoMes.pagado)}</strong> · Falta: <strong>{ars(saldoMes.falta)}</strong></>
@@ -114,7 +114,7 @@ export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }
           )}
 
           {!saldoMes && !cuotaDelMes && (
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+            <p className="text-xs text-[#8a6820] bg-[#fdf6e0] rounded-lg px-3 py-2">
               Sin cuota definida para este mes. Podés configurarla en la ficha del asociado.
             </p>
           )}

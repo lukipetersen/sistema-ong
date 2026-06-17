@@ -21,8 +21,8 @@ export default function Proximamente() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[55vh]">
       <div className="tarjeta p-10 text-center max-w-sm w-full">
-        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-          <Hammer className="w-6 h-6 text-amber-500" />
+        <div className="w-12 h-12 rounded-2xl bg-[#fdf6e0] flex items-center justify-center mx-auto mb-4">
+          <Hammer className="w-6 h-6 text-[#c9b97a]" />
         </div>
         <h2 className="text-base font-semibold text-slate-900">{nombre}</h2>
         <p className="text-sm text-slate-500 mt-2 leading-relaxed">

@@ -47,14 +47,14 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
 
       {/* Panel */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 flex flex-col w-[220px] shrink-0 bg-slate-950 border-r border-white/5
+        fixed inset-y-0 left-0 z-30 flex flex-col w-[220px] shrink-0 bg-[#0e0d0a] border-r border-[rgba(200,185,140,0.08)]
         transition-transform duration-300 ease-in-out
         lg:static lg:translate-x-0
         ${abierto ? 'translate-x-0' : '-translate-x-full'}
       `}>
 
         {/* Logo */}
-        <div className="h-14 flex items-center gap-3 px-4 border-b border-white/5">
+        <div className="h-14 flex items-center gap-3 px-4 border-b border-[rgba(200,185,140,0.07)]">
           <img
             src="/logo.jpg"
             alt="Flor Vida"
@@ -65,10 +65,10 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
               el.nextElementSibling?.classList.remove('hidden')
             }}
           />
-          <div className="w-7 h-7 rounded-lg bg-amber-500/20 items-center justify-center ring-1 ring-amber-500/20 hidden">
-            <Leaf className="w-3.5 h-3.5 text-amber-400" />
+          <div className="w-7 h-7 rounded-lg bg-[#1c1a14] items-center justify-center ring-1 ring-[rgba(200,185,140,0.2)] hidden">
+            <Leaf className="w-3.5 h-3.5 text-[#c9b97a]" />
           </div>
-          <span className="text-white text-sm font-black tracking-widest uppercase flex-1">Flor Vida</span>
+          <span className="text-[#e8d9b0] text-sm font-black tracking-widest uppercase flex-1">Flor Vida</span>
           <button onClick={onCerrar} className="lg:hidden text-slate-500 hover:text-slate-300 transition-colors">
             <X className="w-4 h-4" />
           </button>
@@ -83,16 +83,16 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
               end={exact}
               onClick={onCerrar}
               className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-100 ${
+                `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 border-l-2 ${
                   isActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    ? 'border-[#c9b97a] bg-[rgba(200,180,130,0.09)] text-[#e8d9b0]'
+                    : 'border-transparent text-[rgba(200,180,130,0.38)] hover:bg-[rgba(200,180,130,0.05)] hover:text-[rgba(230,215,175,0.75)]'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icono className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-acento-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                  <Icono className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-acento-400' : 'text-[rgba(200,180,130,0.4)] group-hover:text-[rgba(200,180,130,0.7)]'}`} />
                   {label}
                 </>
               )}
@@ -101,41 +101,41 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="px-3 pb-4 border-t border-white/5 pt-3 space-y-0.5">
+        <div className="px-3 pb-4 border-t border-[rgba(200,185,140,0.07)] pt-3 space-y-0.5">
           <NavLink
             to="/configuracion"
             onClick={onCerrar}
             className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                isActive ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+              `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all border-l-2 ${
+                isActive ? 'border-[#c9b97a] bg-[rgba(200,180,130,0.09)] text-[#e8d9b0]' : 'border-transparent text-[rgba(200,180,130,0.38)] hover:bg-[rgba(200,180,130,0.05)] hover:text-[rgba(230,215,175,0.75)]'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <Settings className={`w-4 h-4 shrink-0 ${isActive ? 'text-acento-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                <Settings className={`w-4 h-4 shrink-0 ${isActive ? 'text-acento-400' : 'text-[rgba(200,180,130,0.4)] group-hover:text-[rgba(200,180,130,0.7)]'}`} />
                 Configuración
               </>
             )}
           </NavLink>
 
           {usuario && (
-            <div className="mt-2 flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group">
-              <div className="w-7 h-7 rounded-full bg-amber-500/20 ring-1 ring-amber-500/20 flex items-center justify-center shrink-0">
-                <span className="text-amber-400 text-xs font-semibold">
+            <div className="mt-2 flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-[rgba(200,180,130,0.06)] transition-colors group">
+              <div className="w-7 h-7 rounded-full bg-[rgba(200,180,130,0.12)] ring-1 ring-[rgba(200,180,130,0.2)] flex items-center justify-center shrink-0">
+                <span className="text-[#c9b97a] text-xs font-semibold">
                   {usuario.nombre[0]}{usuario.apellido[0]}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-xs font-medium truncate leading-tight">
+                <p className="text-[#e8d9b0] text-xs font-medium truncate leading-tight">
                   {usuario.nombre} {usuario.apellido}
                 </p>
-                <p className="text-slate-500 text-[11px] truncate">{ETIQUETA_ROL[usuario.rol]}</p>
+                <p className="text-[rgba(200,180,130,0.38)] text-[11px] truncate">{ETIQUETA_ROL[usuario.rol]}</p>
               </div>
               <button
                 onClick={logout}
                 title="Cerrar sesión"
-                className="text-slate-600 hover:text-slate-300 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                className="text-[rgba(200,180,130,0.3)] hover:text-[rgba(200,180,130,0.7)] transition-colors shrink-0 opacity-0 group-hover:opacity-100"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
