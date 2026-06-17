@@ -31,32 +31,32 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar abierto={sidebarAbierto} onCerrar={() => setSidebarAbierto(false)} />
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-slate-50">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#f7f5ef]">
         {/* Topbar */}
-        <header className="h-14 shrink-0 bg-white border-b border-slate-100 flex items-center justify-between px-4 lg:px-6">
+        <header className="h-14 shrink-0 bg-[#faf8f3] border-b border-[#ede8dc] flex items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-3">
             {/* Hamburguesa mobile */}
             <button
               onClick={() => setSidebarAbierto(true)}
-              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-[#b0a080] hover:bg-[#f0ebe0] hover:text-[#3a3220] transition-colors"
             >
               <Menu className="w-4 h-4" />
             </button>
-            <h1 className="text-[15px] font-semibold text-slate-900 tracking-tight">{titulo}</h1>
+            <h1 className="text-[15px] font-semibold text-[#1a1814] tracking-tight">{titulo}</h1>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative">
+            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-[#b0a080] hover:bg-[#f0ebe0] hover:text-[#3a3220] transition-colors relative">
               <Bell className="w-4 h-4" />
             </button>
-            <div className="w-px h-5 bg-slate-200" />
+            <div className="w-px h-5 bg-[#e0d8c8]" />
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-amber-500/20 ring-1 ring-amber-500/20 flex items-center justify-center">
-                <span className="text-amber-600 text-xs font-semibold">
+              <div className="w-7 h-7 rounded-full bg-[rgba(200,180,130,0.12)] ring-1 ring-[rgba(200,180,130,0.2)] flex items-center justify-center">
+                <span className="text-[#c9b97a] text-xs font-semibold">
                   {usuario.nombre[0]}{usuario.apellido[0]}
                 </span>
               </div>
-              <span className="text-sm text-slate-700 font-medium hidden sm:block">
+              <span className="text-sm text-[#3a3220] font-medium hidden sm:block">
                 {usuario.nombre}
               </span>
             </div>
