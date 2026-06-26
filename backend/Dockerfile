@@ -4,6 +4,8 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json ./
 RUN npm install
 COPY prisma ./prisma
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?pgbouncer=true"
+ENV DIRECT_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
 COPY tsconfig.json ./
 COPY src ./src
