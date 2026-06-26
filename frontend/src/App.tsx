@@ -41,16 +41,10 @@ function Rutas() {
       <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<RutaProtegida><Layout /></RutaProtegida>}>
         <Route index                element={<Dashboard />} />
-        <Route path="beneficiarios" element={<Proximamente />} />
         <Route path="asociados"                    element={<ListaAsociados />} />
         <Route path="asociados/nuevo"              element={<FormularioAsociado modo="crear" />} />
         <Route path="asociados/:id"                element={<FichaAsociado />} />
         <Route path="asociados/:id/editar"         element={<FormularioAsociado modo="editar" />} />
-        <Route path="voluntarios"   element={<Proximamente />} />
-        <Route path="donaciones"    element={<Proximamente />} />
-        <Route path="proyectos"     element={<Proximamente />} />
-        <Route path="inventario"    element={<Proximamente />} />
-        <Route path="eventos"       element={<Proximamente />} />
         <Route path="finanzas"      element={<Finanzas />} />
         <Route path="geneticas"     element={<Geneticas />} />
         <Route path="socios"        element={<Proximamente />} />

@@ -1,23 +1,16 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Heart, Banknote, FolderKanban,
-  Package, Calendar, Landmark, UserCheck, BarChart3,
+  LayoutDashboard, Landmark, UserCheck, BarChart3,
   Settings, LogOut, Leaf, X,
 } from 'lucide-react'
 import { useAuth, type Rol } from '@/contexts/AuthContext'
 
 const nav = [
-  { label: 'Inicio',        icono: LayoutDashboard, ruta: '/',             exact: true },
-  { label: 'Beneficiarios', icono: Users,            ruta: '/beneficiarios' },
-  { label: 'Voluntarios',   icono: Heart,            ruta: '/voluntarios'  },
-  { label: 'Donaciones',    icono: Banknote,         ruta: '/donaciones'   },
-  { label: 'Proyectos',     icono: FolderKanban,     ruta: '/proyectos'    },
-  { label: 'Inventario',    icono: Package,          ruta: '/inventario'   },
-  { label: 'Eventos',       icono: Calendar,         ruta: '/eventos'      },
-  { label: 'Finanzas',      icono: Landmark,         ruta: '/finanzas'     },
-  { label: 'Genéticas',     icono: Leaf,             ruta: '/geneticas'    },
-  { label: 'Asociados',     icono: UserCheck,        ruta: '/asociados'    },
-  { label: 'Reportes',      icono: BarChart3,        ruta: '/reportes'     },
+  { label: 'Inicio',     icono: LayoutDashboard, ruta: '/',          exact: true },
+  { label: 'Finanzas',   icono: Landmark,         ruta: '/finanzas'  },
+  { label: 'Genéticas',  icono: Leaf,             ruta: '/geneticas' },
+  { label: 'Asociados',  icono: UserCheck,        ruta: '/asociados' },
+  { label: 'Reportes',   icono: BarChart3,        ruta: '/reportes'  },
 ]
 
 const ETIQUETA_ROL: Record<Rol, string> = {

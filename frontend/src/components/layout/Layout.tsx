@@ -6,12 +6,6 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const TITULOS: Record<string, string> = {
   '/':              'Inicio',
-  '/beneficiarios': 'Beneficiarios',
-  '/voluntarios':   'Voluntarios',
-  '/donaciones':    'Donaciones',
-  '/proyectos':     'Proyectos',
-  '/inventario':    'Inventario',
-  '/eventos':       'Eventos y actividades',
   '/finanzas':      'Finanzas',
   '/asociados':     'Asociados',
   '/reportes':      'Reportes',
