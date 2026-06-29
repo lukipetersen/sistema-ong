@@ -181,8 +181,8 @@ export default function Dashboard() {
                 <YAxis tick={{ fontSize: 11, fill: '#9a8f78' }} axisLine={false} tickLine={false}
                   tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} width={48} />
                 <Tooltip
-                  formatter={(v: number) => formatPeso(v)}
-                  labelFormatter={fmtMes}
+                  formatter={(v: unknown) => formatPeso(Number(v ?? 0))}
+                  labelFormatter={(s: unknown) => fmtMes(String(s))}
                   contentStyle={{ borderRadius: 8, border: '1px solid #ede8dc', fontSize: 12, color: '#1a1814' }}
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#7a6840' }} />
