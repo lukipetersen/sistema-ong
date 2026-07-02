@@ -43,6 +43,7 @@ export default function FichaAsociado() {
   const [modalPago, setModalPago] = useState(false)
   const [segEditar, setSegEditar] = useState<SeguimientoTerapeutico | null>(null)
   const [confirmElim, setConfirmElim] = useState<{ tipo: 'seg' | 'pago' | 'cuota'; id: string } | null>(null)
+  const [confirmBorrarAsociado, setConfirmBorrarAsociado] = useState(false)
 
   // Estado formulario cuota por mes (inline)
   const [formCuota, setFormCuota] = useState<{ mes: string; monto: string } | null>(null)
@@ -59,6 +60,11 @@ export default function FichaAsociado() {
   }
 
   useEffect(() => { cargar() }, [id])
+
+  async function eliminarAsociado() {
+    await api.delete(`/asociados/${id}`)
+    navigate('/asociados')
+  }
 
   async function eliminarSeg(sid: string) {
     await api.delete(`/asociados/${id}/seguimientos/${sid}`)
@@ -121,9 +127,14 @@ export default function FichaAsociado() {
             <p className="text-sm text-slate-500 mt-0.5">DNI {asociado.dni} · Alta {fechaLarga(asociado.fechaAlta)}</p>
           </div>
         </div>
-        <button onClick={() => navigate(`/asociados/${id}/editar`)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 shrink-0">
-          <Pencil className="w-3.5 h-3.5" /> Editar
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => navigate(`/asociados/${id}/editar`)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[#e0d8c8] hover:bg-[#faf7f0] transition-colors text-[#3a3220]">
+            <Pencil className="w-3.5 h-3.5" /> Editar
+          </button>
+          <button onClick={() => setConfirmBorrarAsociado(true)} className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors text-red-600">
+            <Trash2 className="w-3.5 h-3.5" /> Eliminar
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -149,11 +160,14 @@ export default function FichaAsociado() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
             <Fila label="Nombre completo" valor={`${asociado.nombre} ${asociado.apellido}`} />
             <Fila label="DNI" valor={asociado.dni} />
-            <Fila label="Fecha de nacimiento" valor={asociado.fechaNacimiento ? fechaLarga(asociado.fechaNacimiento) : undefined} />
-            <Fila label="Teléfono" valor={asociado.telefono} />
-            <Fila label="Email" valor={asociado.email} />
-            <Fila label="Dirección" valor={asociado.direccion} />
-            <Fila label="Fecha de alta" valor={fechaLarga(asociado.fechaAlta)} />
+            <Fila label="Domicilio" valor={asociado.direccion} />
+            <Fila label="Fecha de asociación" valor={fechaLarga(asociado.fechaAlta)} />
+            {asociado.observaciones && (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Observaciones</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{asociado.observaciones}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -405,6 +419,21 @@ export default function FichaAsociado() {
           onGuardado={() => { setModalPago(false); cargar() }}
           onCerrar={() => setModalPago(false)}
         />
+      )}
+
+      {/* Confirmar borrar asociado */}
+      {confirmBorrarAsociado && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="font-semibold text-[#1a1814] mb-2">¿Eliminar asociado?</h3>
+            <p className="text-[#7a6840] text-sm mb-1">Vas a eliminar a <strong>{asociado.nombre} {asociado.apellido}</strong>.</p>
+            <p className="text-[#9a8f78] text-xs mb-5">Se borrarán también todos sus seguimientos, pagos y cuotas. Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmBorrarAsociado(false)} className="btn-secundario">Cancelar</button>
+              <button onClick={eliminarAsociado} className="btn-peligro">Eliminar</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmar eliminación */}

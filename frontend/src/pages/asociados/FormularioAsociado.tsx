@@ -5,23 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
 import { api } from '@/lib/api'
-import { PATOLOGIAS } from '@/types/asociados'
 
 const esquema = z.object({
-  nombre:          z.string().min(1, 'Obligatorio'),
-  apellido:        z.string().min(1, 'Obligatorio'),
-  dni:             z.string().min(7, 'Mínimo 7 caracteres').max(8, 'Máximo 8 caracteres'),
-  fechaNacimiento: z.string().optional(),
-  telefono:        z.string().optional(),
-  email:           z.string().email('Email inválido').optional().or(z.literal('')),
-  direccion:       z.string().optional(),
-  estado:          z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']),
-  estadoCuota:     z.enum(['AL_DIA', 'PARCIAL', 'VENCIDA', 'PENDIENTE']),
-  cuotaMensual:    z.coerce.number().positive().optional().or(z.literal('')),
-  patologia:       z.string().optional(),
-  patologiaOtra:   z.string().optional(),
-  observaciones:   z.string().optional(),
-  notasInternas:   z.string().optional(),
+  nombre:        z.string().min(1, 'Obligatorio'),
+  apellido:      z.string().min(1, 'Obligatorio'),
+  dni:           z.string().min(7, 'Mínimo 7 dígitos').max(8, 'Máximo 8 dígitos'),
+  direccion:     z.string().optional(),
+  estado:        z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']),
+  fechaAlta:     z.string().optional(),
+  observaciones: z.string().optional(),
 })
 type FormData = z.infer<typeof esquema>
 
@@ -32,31 +24,22 @@ export default function FormularioAsociado({ modo }: Props) {
   const { id }    = useParams()
   const esEdicion = modo === 'editar'
 
-  const { register, handleSubmit, watch, reset, setError, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(esquema),
-    defaultValues: { estado: 'PENDIENTE', estadoCuota: 'PENDIENTE', cuotaMensual: '' },
+    defaultValues: { estado: 'PENDIENTE' },
   })
-
-  const patologiaSeleccionada = watch('patologia')
 
   useEffect(() => {
     if (!esEdicion || !id) return
     api.get(`/asociados/${id}`).then(({ data }) => {
       reset({
-        nombre:          data.nombre,
-        apellido:        data.apellido,
-        dni:             data.dni,
-        fechaNacimiento: data.fechaNacimiento?.split('T')[0] ?? '',
-        telefono:        data.telefono  ?? '',
-        email:           data.email     ?? '',
-        direccion:       data.direccion ?? '',
-        estado:          data.estado,
-        estadoCuota:     data.estadoCuota,
-        cuotaMensual:    data.cuotaMensual ?? '',
-        patologia:       data.patologia  ?? '',
-        patologiaOtra:   data.patologiaOtra ?? '',
-        observaciones:   data.observaciones ?? '',
-        notasInternas:   data.notasInternas ?? '',
+        nombre:        data.nombre,
+        apellido:      data.apellido,
+        dni:           data.dni,
+        direccion:     data.direccion     ?? '',
+        estado:        data.estado,
+        fechaAlta:     data.fechaAlta?.split('T')[0] ?? '',
+        observaciones: data.observaciones ?? '',
       })
     })
   }, [esEdicion, id, reset])
@@ -65,15 +48,9 @@ export default function FormularioAsociado({ modo }: Props) {
     try {
       const payload = {
         ...datos,
-        email:           datos.email           || null,
-        telefono:        datos.telefono         || null,
-        fechaNacimiento: datos.fechaNacimiento  || null,
-        direccion:       datos.direccion        || null,
-        patologia:       datos.patologia        || null,
-        patologiaOtra:   datos.patologiaOtra    || null,
-        observaciones:   datos.observaciones    || null,
-        notasInternas:   datos.notasInternas    || null,
-        cuotaMensual:    datos.cuotaMensual     || null,
+        direccion:     datos.direccion     || null,
+        observaciones: datos.observaciones || null,
+        fechaAlta:     datos.fechaAlta     || null,
       }
       if (esEdicion) {
         await api.put(`/asociados/${id}`, payload)
@@ -90,100 +67,56 @@ export default function FormularioAsociado({ modo }: Props) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <button onClick={() => navigate('/asociados')} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+    <div className="max-w-xl mx-auto space-y-6">
+      <button onClick={() => navigate('/asociados')} className="flex items-center gap-2 text-sm text-[#7a6840] hover:text-[#1a1814] transition-colors">
         <ArrowLeft className="w-4 h-4" /> Volver al listado
       </button>
 
-      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-900">{esEdicion ? 'Editar asociado' : 'Nuevo asociado'}</h2>
+      <div className="tarjeta overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#ede8dc]">
+          <h2 className="font-semibold text-[#1a1814]">{esEdicion ? 'Editar asociado' : 'Nuevo asociado'}</h2>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-4">
 
-          {/* Datos personales */}
-          <Seccion titulo="Datos personales">
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="Nombre" error={errors.nombre?.message}>
-                <input className={`campo ${errors.nombre ? 'campo-error' : ''}`} {...register('nombre')} />
-              </Campo>
-              <Campo label="Apellido" error={errors.apellido?.message}>
-                <input className={`campo ${errors.apellido ? 'campo-error' : ''}`} {...register('apellido')} />
-              </Campo>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="DNI" error={errors.dni?.message}>
-                <input className={`campo ${errors.dni ? 'campo-error' : ''}`} placeholder="12345678" {...register('dni')} />
-              </Campo>
-              <Campo label="Fecha de nacimiento">
-                <input type="date" className="campo" {...register('fechaNacimiento')} />
-              </Campo>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="Teléfono">
-                <input className="campo" placeholder="11 1234-5678" {...register('telefono')} />
-              </Campo>
-              <Campo label="Email" error={errors.email?.message}>
-                <input type="email" className={`campo ${errors.email ? 'campo-error' : ''}`} placeholder="correo@email.com" {...register('email')} />
-              </Campo>
-            </div>
-            <Campo label="Dirección">
-              <input className="campo" placeholder="Calle 123, localidad" {...register('direccion')} />
+          {/* Nombre y apellido */}
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="Nombre" error={errors.nombre?.message}>
+              <input className={`campo ${errors.nombre ? 'campo-error' : ''}`} {...register('nombre')} />
             </Campo>
-          </Seccion>
+            <Campo label="Apellido" error={errors.apellido?.message}>
+              <input className={`campo ${errors.apellido ? 'campo-error' : ''}`} {...register('apellido')} />
+            </Campo>
+          </div>
+
+          {/* DNI y fecha de asociación */}
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="DNI" error={errors.dni?.message}>
+              <input className={`campo ${errors.dni ? 'campo-error' : ''}`} placeholder="12345678" {...register('dni')} />
+            </Campo>
+            <Campo label="Fecha de asociación">
+              <input type="date" className="campo" {...register('fechaAlta')} />
+            </Campo>
+          </div>
+
+          {/* Domicilio */}
+          <Campo label="Domicilio">
+            <input className="campo" placeholder="Calle 123, localidad" {...register('direccion')} />
+          </Campo>
 
           {/* Estado */}
-          <Seccion titulo="Estado">
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="Estado del asociado">
-                <select className="campo" {...register('estado')}>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="ACTIVO">Activo</option>
-                  <option value="INACTIVO">Inactivo</option>
-                </select>
-              </Campo>
-              <Campo label="Estado de cuota">
-                <select className="campo" {...register('estadoCuota')}>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="AL_DIA">Al día</option>
-                  <option value="PARCIAL">Parcial</option>
-                  <option value="VENCIDA">Vencida</option>
-                </select>
-              </Campo>
-            </div>
-            <Campo label="Valor de cuota mensual (ARS)" error={errors.cuotaMensual?.message}>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Ej: 5000 — dejar vacío si no aplica"
-                className="campo"
-                {...register('cuotaMensual')}
-              />
-            </Campo>
-          </Seccion>
+          <Campo label="Estado">
+            <select className="campo" {...register('estado')}>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="ACTIVO">Activo</option>
+              <option value="INACTIVO">Inactivo</option>
+            </select>
+          </Campo>
 
-          {/* Información terapéutica */}
-          <Seccion titulo="Información terapéutica">
-            <Campo label="Patología principal">
-              <select className="campo" {...register('patologia')}>
-                <option value="">Sin especificar</option>
-                {PATOLOGIAS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-            </Campo>
-            {patologiaSeleccionada === 'OTRA' && (
-              <Campo label="Especificar patología">
-                <input className="campo" placeholder="Describirla brevemente..." {...register('patologiaOtra')} />
-              </Campo>
-            )}
-            <Campo label="Observaciones generales">
-              <textarea rows={3} className="campo resize-none" placeholder="Observaciones clínicas, antecedentes..." {...register('observaciones')} />
-            </Campo>
-            <Campo label="Notas internas">
-              <textarea rows={2} className="campo resize-none" placeholder="Notas privadas del equipo..." {...register('notasInternas')} />
-            </Campo>
-          </Seccion>
+          {/* Observaciones */}
+          <Campo label="Observaciones">
+            <textarea rows={3} className="campo resize-none" placeholder="Observaciones sobre el asociado..." {...register('observaciones')} />
+          </Campo>
 
           {/* Error general */}
           {errors.root && (
@@ -193,11 +126,11 @@ export default function FormularioAsociado({ modo }: Props) {
           )}
 
           {/* Botones */}
-          <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
-            <button type="button" onClick={() => navigate('/asociados')} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700">
+          <div className="flex gap-3 justify-end pt-2 border-t border-[#ede8dc]">
+            <button type="button" onClick={() => navigate('/asociados')} className="btn-secundario">
               Cancelar
             </button>
-            <button type="submit" disabled={isSubmitting} className="btn-primario px-5 py-2 flex items-center gap-2">
+            <button type="submit" disabled={isSubmitting} className="btn-primario">
               {isSubmitting
                 ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
                 : esEdicion ? 'Guardar cambios' : 'Crear asociado'
@@ -210,21 +143,12 @@ export default function FormularioAsociado({ modo }: Props) {
   )
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{titulo}</h3>
-      {children}
-    </div>
-  )
-}
-
 function Campo({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="etiqueta">{label}</label>
       {children}
-      {error && <p className="msg-error mt-1"><AlertCircle className="w-3 h-3" />{error}</p>}
+      {error && <p className="msg-error"><AlertCircle className="w-3 h-3" />{error}</p>}
     </div>
   )
 }

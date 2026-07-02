@@ -13,6 +13,7 @@ const esquemaAsociado = z.object({
   email:           z.string().email('Email inválido').optional().nullable().or(z.literal('')),
   direccion:       z.string().optional().nullable(),
   estado:          z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']).default('PENDIENTE'),
+  fechaAlta:       z.string().optional().nullable(),
   patologia:       z.enum(['ANSIEDAD','INSOMNIO','DOLOR','EPILEPSIA','ESTRES','DEPRESION',
                            'MIGRANA','ARTRITIS','FIBROMIALGIA','PARKINSON','TEA','APETITO',
                            'NAUSEAS','INFLAMACION','OTRA']).optional().nullable(),
@@ -220,6 +221,7 @@ export async function crear(req: Request, res: Response) {
       ...datos,
       email:           datos.email           || null,
       fechaNacimiento: datos.fechaNacimiento  ? new Date(datos.fechaNacimiento) : null,
+      fechaAlta:       datos.fechaAlta        ? new Date(datos.fechaAlta)        : undefined,
     },
   })
 
@@ -250,6 +252,7 @@ export async function actualizar(req: Request, res: Response) {
       ...datos,
       email:           datos.email           || null,
       fechaNacimiento: datos.fechaNacimiento  ? new Date(datos.fechaNacimiento) : undefined,
+      fechaAlta:       datos.fechaAlta        ? new Date(datos.fechaAlta)        : undefined,
     },
   })
 
@@ -269,12 +272,9 @@ export async function actualizar(req: Request, res: Response) {
   res.json(asociado)
 }
 
-// DELETE /api/asociados/:id  → soft delete
+// DELETE /api/asociados/:id
 export async function eliminar(req: Request, res: Response) {
-  await prisma.asociado.update({
-    where: { id: req.params.id },
-    data: { estado: 'INACTIVO' },
-  })
+  await prisma.asociado.delete({ where: { id: req.params.id } })
   res.json({ ok: true })
 }
 
