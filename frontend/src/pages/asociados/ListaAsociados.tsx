@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, ChevronLeft, ChevronRight, User } from 'lucide-react'
 import { api } from '@/lib/api'
-import { Asociado, PATOLOGIAS, LABEL_ESTADO, LABEL_CUOTA, LABEL_PATOLOGIA } from '@/types/asociados'
+import { Asociado, LABEL_ESTADO, LABEL_CUOTA } from '@/types/asociados'
 
-const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'UTC' })
+const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', timeZone:'UTC' })
 
 export default function ListaAsociados() {
   const navigate = useNavigate()
@@ -14,8 +14,6 @@ export default function ListaAsociados() {
   const [busqueda, setBusqueda]   = useState('')
   const [q, setQ]                 = useState('')
   const [estado, setEstado]       = useState('')
-  const [patologia, setPatologia] = useState('')
-  const [estadoCuota, setEstadoCuota] = useState('')
   const [page, setPage]           = useState(1)
   const LIMIT = 20
 
@@ -23,17 +21,15 @@ export default function ListaAsociados() {
     setCargando(true)
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT }
-      if (q)           params.q           = q
-      if (estado)      params.estado      = estado
-      if (patologia)   params.patologia   = patologia
-      if (estadoCuota) params.estadoCuota = estadoCuota
+      if (q)      params.q      = q
+      if (estado) params.estado = estado
       const { data } = await api.get('/asociados', { params })
       setAsociados(data.asociados)
       setTotal(data.total)
     } finally {
       setCargando(false)
     }
-  }, [q, estado, patologia, estadoCuota, page])
+  }, [q, estado, page])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -44,7 +40,7 @@ export default function ListaAsociados() {
   }
 
   function limpiarFiltros() {
-    setBusqueda(''); setQ(''); setEstado(''); setPatologia(''); setEstadoCuota(''); setPage(1)
+    setBusqueda(''); setQ(''); setEstado(''); setPage(1)
   }
 
   const totalPags = Math.ceil(total / LIMIT)
@@ -62,14 +58,14 @@ export default function ListaAsociados() {
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                placeholder="Nombre, apellido, DNI, teléfono..."
+                placeholder="Nombre, apellido o DNI..."
                 className="campo pl-9 w-full"
               />
             </div>
             <button type="submit" className="btn-primario px-4 py-2">Buscar</button>
           </form>
 
-          {/* Filtros */}
+          {/* Filtro de estado */}
           <div className="flex flex-wrap gap-2">
             <select value={estado} onChange={e => { setEstado(e.target.value); setPage(1) }} className="campo py-1.5 text-sm">
               <option value="">Todos los estados</option>
@@ -77,17 +73,7 @@ export default function ListaAsociados() {
               <option value="PENDIENTE">Pendiente</option>
               <option value="INACTIVO">Inactivo</option>
             </select>
-            <select value={patologia} onChange={e => { setPatologia(e.target.value); setPage(1) }} className="campo py-1.5 text-sm">
-              <option value="">Todas las patologías</option>
-              {PATOLOGIAS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-            <select value={estadoCuota} onChange={e => { setEstadoCuota(e.target.value); setPage(1) }} className="campo py-1.5 text-sm">
-              <option value="">Todas las cuotas</option>
-              <option value="AL_DIA">Al día</option>
-              <option value="VENCIDA">Vencida</option>
-              <option value="PENDIENTE">Pendiente</option>
-            </select>
-            {(q || estado || patologia || estadoCuota) && (
+            {(q || estado) && (
               <button onClick={limpiarFiltros} className="text-sm text-slate-500 hover:text-slate-700 underline">
                 Limpiar filtros
               </button>
@@ -116,11 +102,9 @@ export default function ListaAsociados() {
                 <tr className="border-b border-slate-100 text-left">
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Asociado</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">DNI</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Teléfono</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Patología</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Alta</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Domicilio</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Asociado desde</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cuota</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -132,27 +116,23 @@ export default function ListaAsociados() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          <span className="text-slate-600 text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-[#f0ebe0] flex items-center justify-center shrink-0">
+                          <span className="text-[#7a6840] text-xs font-semibold">
                             {a.nombre[0]}{a.apellido[0]}
                           </span>
                         </div>
                         <div>
                           <p className="font-medium text-slate-900">{a.apellido}, {a.nombre}</p>
-                          {a._count && a._count.seguimientos > 0 && (
-                            <p className="text-xs text-slate-400">{a._count.seguimientos} seguimiento{a._count.seguimientos > 1 ? 's' : ''}</p>
+                          {a.observaciones && (
+                            <p className="text-xs text-slate-400 truncate max-w-[180px]">{a.observaciones}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{a.dni}</td>
-                    <td className="px-4 py-3 text-slate-600 hidden md:table-cell">{a.telefono ?? '—'}</td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {a.patologia ? <span className="text-xs bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">{LABEL_PATOLOGIA[a.patologia]}</span> : <span className="text-slate-400">—</span>}
-                    </td>
+                    <td className="px-4 py-3 text-slate-500 hidden md:table-cell">{a.direccion ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs hidden sm:table-cell">{fecha(a.fechaAlta)}</td>
                     <td className="px-4 py-3"><BadgeEstado e={a.estado} /></td>
-                    <td className="px-4 py-3"><BadgeCuota c={a.estadoCuota} /></td>
                   </tr>
                 ))}
               </tbody>
