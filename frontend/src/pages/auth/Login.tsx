@@ -56,7 +56,7 @@ export default function Login() {
         {/* Logo */}
         <div className="relative flex items-center gap-3">
           <img
-            src="/logo.png"
+            src="/logo.jpg"
             alt="Flor Vida Club"
             className="w-10 h-10 rounded-xl object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
