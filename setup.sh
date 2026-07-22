@@ -23,9 +23,10 @@ echo "✅  Docker OK"
 
 # Crear .env si no existe
 if [ ! -f .env ]; then
-  SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*' < /dev/urandom | head -c 48 2>/dev/null || date +%s%N | sha256sum | head -c 48)
-  echo "JWT_SECRET=${SECRET}" > .env
-  echo "✅  Archivo .env creado con JWT_SECRET aleatorio"
+  S1=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 48 2>/dev/null || date +%s%N | sha256sum | head -c 48)
+  S2=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 48 2>/dev/null || date +%s%N | sha256sum | head -c 48)
+  printf "JWT_SECRET=%s\nJWT_REFRESH_SECRET=%s\n" "$S1" "$S2" > .env
+  echo "✅  Archivo .env creado con secrets aleatorios"
 else
   echo "✅  Archivo .env ya existe"
 fi
