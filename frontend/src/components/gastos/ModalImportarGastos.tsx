@@ -214,7 +214,7 @@ type Fuente = 'archivo' | 'sheets'
 
 export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [paso, setPaso]             = useState<Paso>('seleccion')
-  const [fuente, setFuente]         = useState<Fuente>('archivo')
+  const [fuente, setFuente]         = useState<Fuente>(() => localStorage.getItem('gastos_sheets_url') ? 'sheets' : 'archivo')
   const [filas, setFilas]           = useState<FilaParseada[]>([])
   const [archivoNombre, setArchivoNombre] = useState('')
   const [importando, setImportando] = useState(false)

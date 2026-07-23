@@ -137,13 +137,6 @@ router.post('/importar', async (req: Request, res: Response) => {
       ? await prisma.gasto.createMany({ data: nuevos })
       : { count: 0 }
 
-    // Debug temporal: mostrar muestra de claves para diagnóstico
-    const muestraExistentes = [...claves].slice(0, 3)
-    const muestraNuevos     = datos.slice(0, 3).map(d => clave(d.fecha, d.descripcion, d.monto))
-    console.log('[IMPORT DEBUG] existentes (muestra):', muestraExistentes)
-    console.log('[IMPORT DEBUG] entrantes (muestra):', muestraNuevos)
-    console.log('[IMPORT DEBUG] total existentes:', claves.size, '| nuevos:', nuevos.length, '| omitidos:', omitidos)
-
     res.status(201).json({ importados: count, omitidos, errores })
   } catch (e) {
     res.status(500).json({ error: 'Error al importar gastos' })
