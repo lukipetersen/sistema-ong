@@ -218,7 +218,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [filas, setFilas]           = useState<FilaParseada[]>([])
   const [archivoNombre, setArchivoNombre] = useState('')
   const [importando, setImportando] = useState(false)
-  const [resultado, setResultado]   = useState<{ importados: number; errores: { fila: number; error: string }[] } | null>(null)
+  const [resultado, setResultado]   = useState<{ importados: number; omitidos?: number; errores: { fila: number; error: string }[] } | null>(null)
   const [dragOver, setDragOver]     = useState(false)
   const [sheetsUrl, setSheetsUrl]   = useState('')
   const [sheetsError, setSheetsError] = useState('')
@@ -502,12 +502,15 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
             <div className="w-16 h-16 rounded-full bg-[#edf5e0] flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8 text-[#4a7030]" />
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-lg font-semibold text-slate-900">
                 {resultado.importados} gasto{resultado.importados !== 1 ? 's' : ''} importado{resultado.importados !== 1 ? 's' : ''}
               </p>
+              {(resultado.omitidos ?? 0) > 0 && (
+                <p className="text-sm text-slate-500">{resultado.omitidos} ya existían y fueron omitidos</p>
+              )}
               {resultado.errores.length > 0 && (
-                <p className="text-sm text-[#8a6820] mt-1">{resultado.errores.length} fila{resultado.errores.length !== 1 ? 's' : ''} no se pudo importar</p>
+                <p className="text-sm text-[#8a6820]">{resultado.errores.length} fila{resultado.errores.length !== 1 ? 's' : ''} con error</p>
               )}
             </div>
             <button onClick={() => { onImportado(); onCerrar() }} className="btn-primario px-6 py-2">
