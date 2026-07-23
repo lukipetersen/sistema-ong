@@ -223,7 +223,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [sheetsUrl, setSheetsUrl]   = useState('')
   const [sheetsError, setSheetsError] = useState('')
   const [sheetsLoading, setSheetsLoading] = useState(false)
-  const [desdeFecha, setDesdeFecha] = useState('')
+  const [desdeFila, setDesdeFila] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const procesarArchivo = useCallback((file: File) => {
@@ -294,12 +294,11 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
     }
   }
 
-  const filasVisibles = desdeFecha
-    ? filas.filter(f => !f.fecha || f.fecha >= desdeFecha)
-    : filas
-  const validas   = filasVisibles.filter(f => !f.errorFila)
-  const invalidas = filasVisibles.filter(f => f.errorFila)
-  const omitidas  = desdeFecha ? filas.length - filasVisibles.length : 0
+  const desdeIdx    = desdeFila ? Math.max(0, parseInt(desdeFila) - 2) : 0
+  const filasVisibles = filas.slice(desdeIdx)
+  const validas     = filasVisibles.filter(f => !f.errorFila)
+  const invalidas   = filasVisibles.filter(f => f.errorFila)
+  const omitidas    = desdeIdx
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -440,18 +439,22 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
                   )}
                 </div>
               </div>
-              {/* Filtro de fecha */}
+              {/* Filtro por fila */}
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500 whitespace-nowrap">Solo importar desde:</label>
+                <label className="text-xs text-slate-500 whitespace-nowrap">Importar desde la fila:</label>
                 <input
-                  type="date"
-                  value={desdeFecha}
-                  onChange={e => setDesdeFecha(e.target.value)}
-                  className="campo py-1 text-sm"
+                  type="number"
+                  min="2"
+                  max={filas.length + 1}
+                  value={desdeFila}
+                  onChange={e => setDesdeFila(e.target.value)}
+                  placeholder="2"
+                  className="campo py-1 text-sm w-24"
                 />
-                {desdeFecha && (
-                  <button onClick={() => setDesdeFecha('')} className="text-xs text-slate-400 hover:text-slate-600">
-                    Quitar filtro
+                <span className="text-xs text-slate-400">(fila 2 = primer registro)</span>
+                {desdeFila && (
+                  <button onClick={() => setDesdeFila('')} className="text-xs text-slate-400 hover:text-slate-600 ml-1">
+                    Quitar
                   </button>
                 )}
               </div>
