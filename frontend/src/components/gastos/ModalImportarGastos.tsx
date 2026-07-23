@@ -220,7 +220,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [importando, setImportando] = useState(false)
   const [resultado, setResultado]   = useState<{ importados: number; omitidos?: number; errores: { fila: number; error: string }[] } | null>(null)
   const [dragOver, setDragOver]     = useState(false)
-  const [sheetsUrl, setSheetsUrl]   = useState('')
+  const [sheetsUrl, setSheetsUrl]   = useState(() => localStorage.getItem('gastos_sheets_url') ?? '')
   const [sheetsError, setSheetsError] = useState('')
   const [sheetsLoading, setSheetsLoading] = useState(false)
   const [desdeFila, setDesdeFila] = useState('')
@@ -251,7 +251,9 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
     setSheetsError('')
     setSheetsLoading(true)
     try {
-      const csvUrl = urlCsvDeSheets(sheetsUrl.trim())
+      const url = sheetsUrl.trim()
+      localStorage.setItem('gastos_sheets_url', url)
+      const csvUrl = urlCsvDeSheets(url)
       const resp = await fetch(csvUrl)
       if (!resp.ok) throw new Error('No se pudo acceder al sheet. Verificá que esté publicado o sea público.')
       const text = await resp.text()
@@ -386,7 +388,17 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
 
                 {/* Input URL */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">URL del Google Sheet</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-slate-700">URL del Google Sheet</label>
+                    {localStorage.getItem('gastos_sheets_url') && (
+                      <button
+                        onClick={() => { setSheetsUrl(''); localStorage.removeItem('gastos_sheets_url') }}
+                        className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        Cambiar URL
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="url"
                     value={sheetsUrl}
