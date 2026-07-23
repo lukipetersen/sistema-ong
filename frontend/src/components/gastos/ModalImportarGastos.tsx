@@ -223,6 +223,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [sheetsUrl, setSheetsUrl]   = useState('')
   const [sheetsError, setSheetsError] = useState('')
   const [sheetsLoading, setSheetsLoading] = useState(false)
+  const [desdeFecha, setDesdeFecha] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const procesarArchivo = useCallback((file: File) => {
@@ -270,7 +271,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   }
 
   async function importar() {
-    const validas = filas.filter(f => !f.errorFila)
+    const validas = filasVisibles.filter(f => !f.errorFila)
     if (validas.length === 0) return
     setImportando(true)
     try {
@@ -293,8 +294,12 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
     }
   }
 
-  const validas   = filas.filter(f => !f.errorFila)
-  const invalidas = filas.filter(f => f.errorFila)
+  const filasVisibles = desdeFecha
+    ? filas.filter(f => !f.fecha || f.fecha >= desdeFecha)
+    : filas
+  const validas   = filasVisibles.filter(f => !f.errorFila)
+  const invalidas = filasVisibles.filter(f => f.errorFila)
+  const omitidas  = desdeFecha ? filas.length - filasVisibles.length : 0
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -416,16 +421,38 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
         {/* Paso 2: Preview */}
         {paso === 'preview' && (
           <>
-            <div className="px-6 pt-4 pb-3 border-b border-slate-100 flex items-center gap-4 flex-wrap">
-              <span className="text-sm text-slate-500">{archivoNombre}</span>
-              <div className="flex gap-3 ml-auto">
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#4a7030] bg-[#edf5e0] border border-[#c0d8a0] px-2.5 py-1 rounded-full">
-                  <CheckCircle2 className="w-3 h-3" /> {validas.length} válidos
-                </span>
-                {invalidas.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-                    <AlertCircle className="w-3 h-3" /> {invalidas.length} con error
+            <div className="px-6 pt-4 pb-3 border-b border-slate-100 space-y-3">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="text-sm text-slate-500">{archivoNombre} — {filas.length} filas totales</span>
+                <div className="flex gap-3 ml-auto">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-[#4a7030] bg-[#edf5e0] border border-[#c0d8a0] px-2.5 py-1 rounded-full">
+                    <CheckCircle2 className="w-3 h-3" /> {validas.length} a importar
                   </span>
+                  {omitidas > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                      {omitidas} anteriores a la fecha
+                    </span>
+                  )}
+                  {invalidas.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                      <AlertCircle className="w-3 h-3" /> {invalidas.length} con error
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Filtro de fecha */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-500 whitespace-nowrap">Solo importar desde:</label>
+                <input
+                  type="date"
+                  value={desdeFecha}
+                  onChange={e => setDesdeFecha(e.target.value)}
+                  className="campo py-1 text-sm"
+                />
+                {desdeFecha && (
+                  <button onClick={() => setDesdeFecha('')} className="text-xs text-slate-400 hover:text-slate-600">
+                    Quitar filtro
+                  </button>
                 )}
               </div>
             </div>
@@ -444,7 +471,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filas.map((f, i) => (
+                  {filasVisibles.map((f, i) => (
                     <tr key={i} className={f.errorFila ? 'bg-red-50' : 'hover:bg-slate-50'}>
                       <td className="px-3 py-2 text-slate-400">{i + 2}</td>
                       {f.errorFila ? (
