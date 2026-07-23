@@ -120,22 +120,17 @@ router.post('/importar', async (req: Request, res: Response) => {
       })
     }
 
-    // Deduplicar: buscar gastos existentes en el rango de fechas del lote
-    const fechas = datos.map(d => d.fecha)
-    const desde  = new Date(Math.min(...fechas.map(f => f.getTime())))
-    const hasta  = new Date(Math.max(...fechas.map(f => f.getTime())))
-    hasta.setHours(23, 59, 59, 999)
-
+    // Deduplicar: traer todos los gastos y comparar por fecha+descripcion+monto
     const existentes = await prisma.gasto.findMany({
-      where: { fecha: { gte: desde, lte: hasta } },
       select: { fecha: true, descripcion: true, monto: true },
     })
 
-    const claves = new Set(
-      existentes.map(g => `${g.fecha.toISOString().split('T')[0]}|${g.descripcion.trim().toLowerCase()}|${Number(g.monto)}`)
-    )
+    const clave = (fecha: Date, descripcion: string, monto: number | string) =>
+      `${fecha.toISOString().slice(0, 10)}|${String(descripcion).trim().toLowerCase().replace(/\s+/g, ' ')}|${parseFloat(String(monto))}`
 
-    const nuevos  = datos.filter(d => !claves.has(`${d.fecha.toISOString().split('T')[0]}|${d.descripcion.trim().toLowerCase()}|${d.monto}`))
+    const claves = new Set(existentes.map(g => clave(g.fecha, g.descripcion, g.monto.toString())))
+
+    const nuevos   = datos.filter(d => !claves.has(clave(d.fecha, d.descripcion, d.monto)))
     const omitidos = datos.length - nuevos.length
 
     const { count } = nuevos.length > 0
