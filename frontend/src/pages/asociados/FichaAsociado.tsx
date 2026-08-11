@@ -124,7 +124,10 @@ export default function FichaAsociado() {
               <BadgeEstado e={asociado.estado} />
               <BadgeCuota c={asociado.estadoCuota} />
             </div>
-            <p className="text-sm text-slate-500 mt-0.5">DNI {asociado.dni} · Alta {fechaLarga(asociado.fechaAlta)}</p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              DNI {asociado.dni} · Alta {fechaLarga(asociado.fechaAlta)}
+              {asociado.sede && <> · <span className="font-medium">{asociado.sede}</span></>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -160,6 +163,7 @@ export default function FichaAsociado() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
             <Fila label="Nombre completo" valor={`${asociado.nombre} ${asociado.apellido}`} />
             <Fila label="DNI" valor={asociado.dni} />
+            <Fila label="Sede" valor={asociado.sede} />
             <Fila label="Domicilio" valor={asociado.direccion} />
             <Fila label="Fecha de asociación" valor={fechaLarga(asociado.fechaAlta)} />
             {asociado.observaciones && (

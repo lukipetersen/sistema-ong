@@ -12,6 +12,7 @@ const esquemaAsociado = z.object({
   telefono:        z.string().optional().nullable(),
   email:           z.string().email('Email inválido').optional().nullable().or(z.literal('')),
   direccion:       z.string().optional().nullable(),
+  sede:            z.string().optional().nullable(),
   estado:          z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']).default('PENDIENTE'),
   fechaAlta:       z.string().optional().nullable(),
   patologia:       z.enum(['ANSIEDAD','INSOMNIO','DOLOR','EPILEPSIA','ESTRES','DEPRESION',
@@ -131,7 +132,7 @@ export async function listar(req: Request, res: Response) {
       select: {
         id: true, nombre: true, apellido: true, dni: true,
         telefono: true, email: true, fechaAlta: true,
-        estado: true, patologia: true, estadoCuota: true,
+        sede: true, estado: true, patologia: true, estadoCuota: true,
         _count: { select: { seguimientos: true } },
       },
     }),

@@ -13,6 +13,7 @@ export interface Asociado {
   telefono: string | null
   email: string | null
   direccion: string | null
+  sede: string | null
   fechaAlta: string
   estado: EstadoAsociado
   patologia: Patologia | null

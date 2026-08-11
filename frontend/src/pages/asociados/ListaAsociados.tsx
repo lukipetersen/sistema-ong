@@ -102,7 +102,7 @@ export default function ListaAsociados() {
                 <tr className="border-b border-slate-100 text-left">
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Asociado</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">DNI</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Domicilio</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Sede</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Asociado desde</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
                 </tr>
@@ -130,7 +130,7 @@ export default function ListaAsociados() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{a.dni}</td>
-                    <td className="px-4 py-3 text-slate-500 hidden md:table-cell">{a.direccion ?? <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3 text-slate-500 hidden md:table-cell">{a.sede ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs hidden sm:table-cell">{fecha(a.fechaAlta)}</td>
                     <td className="px-4 py-3"><BadgeEstado e={a.estado} /></td>
                   </tr>

@@ -299,6 +299,7 @@ model Asociado {
   telefono        String?
   email           String?
   direccion       String?
+  sede            String?
   fechaAlta       DateTime       @default(now())
   estado          EstadoAsociado @default(PENDIENTE)
 

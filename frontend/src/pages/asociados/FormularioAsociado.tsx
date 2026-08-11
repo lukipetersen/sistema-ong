@@ -11,6 +11,7 @@ const esquema = z.object({
   apellido:      z.string().min(1, 'Obligatorio'),
   dni:           z.string().min(7, 'Mínimo 7 dígitos').max(8, 'Máximo 8 dígitos'),
   direccion:     z.string().optional(),
+  sede:          z.string().optional(),
   estado:        z.enum(['ACTIVO', 'PENDIENTE', 'INACTIVO']),
   fechaAlta:     z.string().optional(),
   observaciones: z.string().optional(),
@@ -37,6 +38,7 @@ export default function FormularioAsociado({ modo }: Props) {
         apellido:      data.apellido,
         dni:           data.dni,
         direccion:     data.direccion     ?? '',
+        sede:          data.sede          ?? '',
         estado:        data.estado,
         fechaAlta:     data.fechaAlta?.split('T')[0] ?? '',
         observaciones: data.observaciones ?? '',
@@ -49,6 +51,7 @@ export default function FormularioAsociado({ modo }: Props) {
       const payload = {
         ...datos,
         direccion:     datos.direccion     || null,
+        sede:          datos.sede          || null,
         observaciones: datos.observaciones || null,
         fechaAlta:     datos.fechaAlta     || null,
       }
@@ -99,10 +102,15 @@ export default function FormularioAsociado({ modo }: Props) {
             </Campo>
           </div>
 
-          {/* Domicilio */}
-          <Campo label="Domicilio">
-            <input className="campo" placeholder="Calle 123, localidad" {...register('direccion')} />
-          </Campo>
+          {/* Domicilio y Sede */}
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="Domicilio">
+              <input className="campo" placeholder="Calle 123, localidad" {...register('direccion')} />
+            </Campo>
+            <Campo label="Sede">
+              <input className="campo" placeholder="Ej: Sede Central" {...register('sede')} />
+            </Campo>
+          </div>
 
           {/* Estado */}
           <Campo label="Estado">
