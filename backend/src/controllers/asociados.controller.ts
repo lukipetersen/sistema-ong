@@ -110,13 +110,14 @@ async function recalcularEstadoCuota(asociadoId: string) {
 
 // GET /api/asociados
 export async function listar(req: Request, res: Response) {
-  const { q, estado, patologia, estadoCuota, page = '1', limit = '20', orden = 'apellido' } = req.query as Record<string, string>
+  const { q, estado, sede, patologia, estadoCuota, page = '1', limit = '20', orden = 'apellido' } = req.query as Record<string, string>
 
   const where: Record<string, unknown> = {}
   if (q)           Object.assign(where, buildBusqueda(q))
   if (estado)      where.estado      = estado
   if (patologia)   where.patologia   = patologia
   if (estadoCuota) where.estadoCuota = estadoCuota
+  if (sede)        where.sede        = { contains: sede, mode: 'insensitive' }
 
   const skip = (Number(page) - 1) * Number(limit)
   const orderBy = orden === 'nombre' ? { nombre: 'asc' as const }

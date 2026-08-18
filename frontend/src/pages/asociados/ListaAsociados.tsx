@@ -14,22 +14,25 @@ export default function ListaAsociados() {
   const [busqueda, setBusqueda]   = useState('')
   const [q, setQ]                 = useState('')
   const [estado, setEstado]       = useState('')
+  const [sede, setSede]           = useState('')
+  const [orden, setOrden]         = useState('apellido')
   const [page, setPage]           = useState(1)
   const LIMIT = 20
 
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const params: Record<string, string | number> = { page, limit: LIMIT }
+      const params: Record<string, string | number> = { page, limit: LIMIT, orden }
       if (q)      params.q      = q
       if (estado) params.estado = estado
+      if (sede)   params.sede   = sede
       const { data } = await api.get('/asociados', { params })
       setAsociados(data.asociados)
       setTotal(data.total)
     } finally {
       setCargando(false)
     }
-  }, [q, estado, page])
+  }, [q, estado, sede, orden, page])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -40,7 +43,7 @@ export default function ListaAsociados() {
   }
 
   function limpiarFiltros() {
-    setBusqueda(''); setQ(''); setEstado(''); setPage(1)
+    setBusqueda(''); setQ(''); setEstado(''); setSede(''); setOrden('apellido'); setPage(1)
   }
 
   const totalPags = Math.ceil(total / LIMIT)
@@ -65,7 +68,7 @@ export default function ListaAsociados() {
             <button type="submit" className="btn-primario px-4 py-2">Buscar</button>
           </form>
 
-          {/* Filtro de estado */}
+          {/* Filtros y orden */}
           <div className="flex flex-wrap gap-2">
             <select value={estado} onChange={e => { setEstado(e.target.value); setPage(1) }} className="campo py-1.5 text-sm">
               <option value="">Todos los estados</option>
@@ -73,7 +76,18 @@ export default function ListaAsociados() {
               <option value="PENDIENTE">Pendiente</option>
               <option value="INACTIVO">Inactivo</option>
             </select>
-            {(q || estado) && (
+            <input
+              value={sede}
+              onChange={e => { setSede(e.target.value); setPage(1) }}
+              placeholder="Filtrar por sede..."
+              className="campo py-1.5 text-sm w-44"
+            />
+            <select value={orden} onChange={e => { setOrden(e.target.value); setPage(1) }} className="campo py-1.5 text-sm">
+              <option value="apellido">Orden: Apellido A-Z</option>
+              <option value="nombre">Orden: Nombre A-Z</option>
+              <option value="fechaAlta">Orden: Fecha de asociación</option>
+            </select>
+            {(q || estado || sede || orden !== 'apellido') && (
               <button onClick={limpiarFiltros} className="text-sm text-slate-500 hover:text-slate-700 underline">
                 Limpiar filtros
               </button>
