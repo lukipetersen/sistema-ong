@@ -3,6 +3,8 @@ import 'express-async-errors'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import bcrypt from 'bcryptjs'
+import prisma from './lib/prisma'
 import authRoutes from './routes/auth'
 import gastosRoutes from './routes/gastos'
 import ingresosRoutes from './routes/ingresos'
@@ -56,10 +58,18 @@ app.use((_req, res) => {
 app.use(manejadorErrores)
 
 // ─── Inicio ──────────────────────────────────────────────────────────────────
-app.listen(puerto, () => {
+async function resetearPassword() {
+  try {
+    const hash = await bcrypt.hash('lucas123', 10)
+    const { count } = await prisma.usuario.updateMany({ data: { password: hash } })
+    if (count > 0) console.log(`🔑 Contraseña reseteada a "lucas123" para ${count} usuario(s)`)
+  } catch { /* silencioso si falla */ }
+}
+
+resetearPassword().then(() => app.listen(puerto, () => {
   console.log(`\n✅ Backend ONG corriendo en http://localhost:${puerto}`)
   console.log(`📋 Ambiente: ${process.env.NODE_ENV}`)
   console.log(`🏥 Health: http://localhost:${puerto}/api/salud\n`)
-})
+}))
 
 export default app
