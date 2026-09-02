@@ -40,9 +40,9 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
 
       {/* Panel */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 flex flex-col w-[220px] shrink-0 bg-[#0e0d0a] border-r border-[rgba(200,185,140,0.08)]
+        fixed inset-y-0 left-0 z-30 flex flex-col w-[260px] shrink-0 bg-[#0e0d0a] border-r border-[rgba(200,185,140,0.08)]
         transition-transform duration-300 ease-in-out
-        lg:static lg:translate-x-0
+        lg:static lg:translate-x-0 lg:w-[220px]
         ${abierto ? 'translate-x-0' : '-translate-x-full'}
       `}>
 
@@ -76,7 +76,7 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
               end={exact}
               onClick={onCerrar}
               className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 border-l-2 ${
+                `group flex items-center gap-3 px-3 py-3 lg:py-2 rounded-lg text-[14px] lg:text-[13px] font-medium transition-all duration-100 border-l-2 ${
                   isActive
                     ? 'border-[#c9b97a] bg-[rgba(200,180,130,0.09)] text-[#e8d9b0]'
                     : 'border-transparent text-[rgba(200,180,130,0.38)] hover:bg-[rgba(200,180,130,0.05)] hover:text-[rgba(230,215,175,0.75)]'
@@ -113,8 +113,8 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
           </NavLink>
 
           {usuario && (
-            <div className="mt-2 flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-[rgba(200,180,130,0.06)] transition-colors group">
-              <div className="w-7 h-7 rounded-full bg-[rgba(200,180,130,0.12)] ring-1 ring-[rgba(200,180,130,0.2)] flex items-center justify-center shrink-0">
+            <div className="mt-2 flex items-center gap-2.5 px-3 py-3 rounded-lg bg-[rgba(200,180,130,0.04)]">
+              <div className="w-8 h-8 rounded-full bg-[rgba(200,180,130,0.12)] ring-1 ring-[rgba(200,180,130,0.2)] flex items-center justify-center shrink-0">
                 <span className="text-[#c9b97a] text-xs font-semibold">
                   {usuario.nombre[0]}{usuario.apellido[0]}
                 </span>
@@ -128,9 +128,9 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
               <button
                 onClick={logout}
                 title="Cerrar sesión"
-                className="text-[rgba(200,180,130,0.3)] hover:text-[rgba(200,180,130,0.7)] transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[rgba(200,180,130,0.5)] hover:text-[rgba(200,180,130,0.9)] hover:bg-[rgba(200,180,130,0.08)] transition-colors shrink-0"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           )}
