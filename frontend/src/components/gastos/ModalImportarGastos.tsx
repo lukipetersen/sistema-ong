@@ -134,8 +134,7 @@ function validarFila(raw: Record<string, unknown>, headerMap: Record<string, key
   })()
 
   const fechaParsed = parsearFecha(fechaRaw)
-  const montoRaw = get('monto').replace(/[$.]/g, '').replace(',', '.')
-  const monto = montoRaw !== '' ? parseFloat(montoRaw) : null
+  const monto = parsearMonto(get('monto'))
 
   const catRaw = normVal(get('categoria'))
   const categoria = CATEGORIA_MAP[catRaw] || CATEGORIA_MAP[get('categoria')] || ''
@@ -176,6 +175,42 @@ function procesarRows(rows: Record<string, unknown>[]): { filas: FilaParseada[] 
     .filter(r => Object.values(r).some(v => v !== '' && v != null))
     .map(r => validarFila(r, headerMap))
   return { filas }
+}
+
+// ─── Parser de monto (maneja formatos con separadores americanos y argentinos) ──
+
+function parsearMonto(str: string): number | null {
+  // Quitar símbolo de moneda y espacios
+  let s = str.replace(/[$\s]/g, '')
+  if (!s) return null
+
+  const tienePunto = s.includes('.')
+  const tieneComa  = s.includes(',')
+
+  if (tienePunto && tieneComa) {
+    // Ambos presentes: el último separador es el decimal
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      // Europeo/argentino: 180.500,00 → remover puntos, coma = decimal
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      // Americano: 180,500.00 → remover comas
+      s = s.replace(/,/g, '')
+    }
+  } else if (tieneComa) {
+    // Solo coma: si está separando exactamente 3 dígitos al final → miles
+    if (/,\d{3}$/.test(s) && s.indexOf(',') !== s.lastIndexOf(',') === false) {
+      s = s.replace(/,/g, '')
+    } else {
+      // Tratar como decimal
+      s = s.replace(',', '.')
+    }
+  } else if (tienePunto && /\.\d{3}$/.test(s)) {
+    // Punto seguido de exactamente 3 dígitos al final → separador de miles
+    s = s.replace(/\./g, '')
+  }
+
+  const n = parseFloat(s)
+  return isNaN(n) ? null : n
 }
 
 // ─── Parser CSV manual (evita que XLSX reinterprete fechas como formato americano) ──
