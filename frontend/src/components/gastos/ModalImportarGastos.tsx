@@ -178,6 +178,60 @@ function procesarRows(rows: Record<string, unknown>[]): { filas: FilaParseada[] 
   return { filas }
 }
 
+// ─── Parser CSV manual (evita que XLSX reinterprete fechas como formato americano) ──
+
+function parsearCsvTexto(text: string): Record<string, unknown>[] {
+  const splitLinea = (linea: string): string[] => {
+    const campos: string[] = []
+    let campo = ''
+    let enComillas = false
+    for (let i = 0; i < linea.length; i++) {
+      const ch = linea[i]
+      if (ch === '"') {
+        if (enComillas && linea[i + 1] === '"') { campo += '"'; i++ }
+        else enComillas = !enComillas
+      } else if (ch === ',' && !enComillas) {
+        campos.push(campo)
+        campo = ''
+      } else {
+        campo += ch
+      }
+    }
+    campos.push(campo)
+    return campos
+  }
+
+  const lineas: string[] = []
+  let lineaActual = ''
+  let enComillas = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '"') {
+      if (enComillas && text[i + 1] === '"') { lineaActual += '"'; i++ }
+      else enComillas = !enComillas
+      lineaActual += ch
+    } else if ((ch === '\n' || ch === '\r') && !enComillas) {
+      if (ch === '\r' && text[i + 1] === '\n') i++
+      lineas.push(lineaActual)
+      lineaActual = ''
+    } else {
+      lineaActual += ch
+    }
+  }
+  if (lineaActual) lineas.push(lineaActual)
+
+  if (lineas.length < 2) return []
+  const headers = splitLinea(lineas[0])
+  return lineas.slice(1)
+    .filter(l => l.trim())
+    .map(linea => {
+      const vals = splitLinea(linea)
+      const obj: Record<string, unknown> = {}
+      headers.forEach((h, i) => { obj[h] = vals[i] ?? '' })
+      return obj
+    })
+}
+
 // ─── Conversión de URL de Google Sheets a CSV ────────────────────────────────
 
 function urlCsvDeSheets(url: string): string {
@@ -269,29 +323,9 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
       const resp = await fetch(csvUrl)
       if (!resp.ok) throw new Error('No se pudo acceder al sheet. Verificá que esté publicado o sea público.')
       const text = await resp.text()
-      const wb = XLSX.read(text, { type: 'string', cellDates: false })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-
-      // XLSX auto-detecta fechas en CSV y las convierte a seriales numéricos usando
-      // formato americano (MM/DD), lo que invierte día y mes. Solución: si la celda
-      // tiene tipo numérico pero su valor formateado (w) parece una fecha, revertirla
-      // a string para que nuestro parser la procese con formato argentino (DD/MM).
-      const reDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/
-      const ref = ws['!ref']
-      if (ref) {
-        const rng = XLSX.utils.decode_range(ref)
-        for (let R = rng.s.r; R <= rng.e.r; R++) {
-          for (let C = rng.s.c; C <= rng.e.c; C++) {
-            const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
-            if (cell && cell.t === 'n' && cell.w && reDate.test(cell.w)) {
-              cell.t = 's'
-              cell.v = cell.w
-            }
-          }
-        }
-      }
-
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { raw: true, defval: '' })
+      // Parseo manual: evita que XLSX reinterprete fechas "03/09/2026" como
+      // formato americano (March 9) y las convierta a serial incorrecto.
+      const rows = parsearCsvTexto(text)
       const { filas: parsed } = procesarRows(rows)
       if (parsed.length === 0) throw new Error('El sheet no tiene datos.')
       setFilas(parsed)
