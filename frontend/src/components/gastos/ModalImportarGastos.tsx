@@ -77,6 +77,7 @@ const ESTADO_MAP: Record<string, string> = {
 function parsearFecha(valor: unknown): string | null {
   if (valor == null || valor === '') return null
 
+  // Serial de Excel (archivos .xlsx con cellDates: false)
   if (typeof valor === 'number') {
     const fecha = XLSX.SSF.parse_date_code(valor)
     if (fecha) return `${fecha.y}-${String(fecha.m).padStart(2, '0')}-${String(fecha.d).padStart(2, '0')}`
@@ -84,23 +85,34 @@ function parsearFecha(valor: unknown): string | null {
   }
 
   const str = String(valor).trim()
-  const patrones = [
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/,
-    /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/,
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/,
-  ]
 
-  const m1 = str.match(patrones[0])
-  if (m1) return `${m1[3]}-${m1[2].padStart(2, '0')}-${m1[1].padStart(2, '0')}`
-  const m2 = str.match(patrones[1])
-  if (m2) return `${m2[1]}-${m2[2].padStart(2, '0')}-${m2[3].padStart(2, '0')}`
-  const m3 = str.match(patrones[2])
+  // YYYY-MM-DD (ISO)
+  const mIso = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/)
+  if (mIso) return `${mIso[1]}-${mIso[2].padStart(2, '0')}-${mIso[3].padStart(2, '0')}`
+
+  // DD/MM/YYYY o MM/DD/YYYY (año 4 dígitos)
+  const m1 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (m1) {
+    const a = parseInt(m1[1]), b = parseInt(m1[2])
+    if (a > 12) {
+      // Primer número > 12 → solo puede ser el día: formato DD/MM/YYYY
+      return `${m1[3]}-${m1[2].padStart(2, '0')}-${m1[1].padStart(2, '0')}`
+    }
+    if (b > 12) {
+      // Segundo número > 12 → solo puede ser el día: formato MM/DD/YYYY (americano)
+      return `${m1[3]}-${m1[1].padStart(2, '0')}-${m1[2].padStart(2, '0')}`
+    }
+    // Ambos ≤ 12: asumir DD/MM/YYYY (formato argentino)
+    return `${m1[3]}-${m1[2].padStart(2, '0')}-${m1[1].padStart(2, '0')}`
+  }
+
+  // DD/MM/YY (año 2 dígitos)
+  const m3 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/)
   if (m3) {
     const anio = parseInt(m3[3]) + (parseInt(m3[3]) < 50 ? 2000 : 1900)
     return `${anio}-${m3[2].padStart(2, '0')}-${m3[1].padStart(2, '0')}`
   }
-  const d = new Date(str)
-  if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+
   return null
 }
 
@@ -257,9 +269,9 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
       const resp = await fetch(csvUrl)
       if (!resp.ok) throw new Error('No se pudo acceder al sheet. Verificá que esté publicado o sea público.')
       const text = await resp.text()
-      const wb = XLSX.read(text, { type: 'string' })
+      const wb = XLSX.read(text, { type: 'string', cellDates: false, raw: false })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { raw: true, defval: '' })
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { raw: false, defval: '' })
       const { filas: parsed } = procesarRows(rows)
       if (parsed.length === 0) throw new Error('El sheet no tiene datos.')
       setFilas(parsed)
