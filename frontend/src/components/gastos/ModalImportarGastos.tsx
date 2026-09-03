@@ -269,9 +269,29 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
       const resp = await fetch(csvUrl)
       if (!resp.ok) throw new Error('No se pudo acceder al sheet. Verificá que esté publicado o sea público.')
       const text = await resp.text()
-      const wb = XLSX.read(text, { type: 'string', cellDates: false, raw: false })
+      const wb = XLSX.read(text, { type: 'string', cellDates: false })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { raw: false, defval: '' })
+
+      // XLSX auto-detecta fechas en CSV y las convierte a seriales numéricos usando
+      // formato americano (MM/DD), lo que invierte día y mes. Solución: si la celda
+      // tiene tipo numérico pero su valor formateado (w) parece una fecha, revertirla
+      // a string para que nuestro parser la procese con formato argentino (DD/MM).
+      const reDate = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/
+      const ref = ws['!ref']
+      if (ref) {
+        const rng = XLSX.utils.decode_range(ref)
+        for (let R = rng.s.r; R <= rng.e.r; R++) {
+          for (let C = rng.s.c; C <= rng.e.c; C++) {
+            const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+            if (cell && cell.t === 'n' && cell.w && reDate.test(cell.w)) {
+              cell.t = 's'
+              cell.v = cell.w
+            }
+          }
+        }
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { raw: true, defval: '' })
       const { filas: parsed } = procesarRows(rows)
       if (parsed.length === 0) throw new Error('El sheet no tiene datos.')
       setFilas(parsed)
