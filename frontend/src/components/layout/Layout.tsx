@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useLocation, useNavigate, NavLink } from 'react-router-dom'
-import { Menu, LayoutDashboard, Landmark, Leaf, UserCheck, BarChart3 } from 'lucide-react'
+import { Menu, LayoutDashboard, Landmark, Leaf, UserCheck, BarChart3, ClipboardList } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -11,6 +11,7 @@ const TITULOS: Record<string, string> = {
   '/reportes':      'Reportes',
   '/configuracion': 'Configuración',
   '/geneticas':     'Genéticas',
+  '/forms':         'Forms',
 }
 
 const navItems = [
@@ -18,7 +19,7 @@ const navItems = [
   { label: 'Finanzas',  icono: Landmark,         ruta: '/finanzas',  exact: false },
   { label: 'Genéticas', icono: Leaf,             ruta: '/geneticas', exact: false },
   { label: 'Asociados', icono: UserCheck,        ruta: '/asociados', exact: false },
-  { label: 'Reportes',  icono: BarChart3,        ruta: '/reportes',  exact: false },
+  { label: 'Forms',     icono: ClipboardList,    ruta: '/forms',     exact: false },
 ]
 
 export default function Layout() {
