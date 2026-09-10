@@ -1,6 +1,6 @@
 databases:
   - name: sistema-ong-db
-    plan: basic
+    plan: free
     databaseName: sistema_ong
     user: ong
 
