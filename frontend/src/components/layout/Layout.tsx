@@ -79,9 +79,7 @@ export default function Layout() {
             className="p-4 lg:p-6 max-w-7xl mx-auto"
             style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
           >
-            <div className="lg:[padding-bottom:1.5rem]">
-              <Outlet />
-            </div>
+            <Outlet />
           </div>
         </main>
 
@@ -105,7 +103,7 @@ export default function Layout() {
                 {({ isActive }) => (
                   <>
                     <Icono className={`w-[22px] h-[22px] ${isActive ? 'text-[#c9b97a]' : ''}`} />
-                    <span className={`text-[10px] font-medium tracking-wide ${isActive ? 'text-[#c9b97a]' : ''}`}>
+                    <span className={`text-[11px] font-medium tracking-wide ${isActive ? 'text-[#c9b97a]' : ''}`}>
                       {label}
                     </span>
                   </>

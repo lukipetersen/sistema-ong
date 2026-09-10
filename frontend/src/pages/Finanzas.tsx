@@ -72,7 +72,7 @@ function Tarjeta({ titulo, valor, color, sub }: { titulo: string; valor: string;
   return (
     <div className={`rounded-xl p-4 ${colores[color]}`}>
       <p className={`text-xs font-medium mb-1 ${color === 'slate' ? 'text-slate-400' : 'opacity-60'}`}>{titulo}</p>
-      <p className="text-xl font-bold leading-tight">{valor}</p>
+      <p className="text-base sm:text-xl font-bold leading-tight truncate">{valor}</p>
       {sub && <p className={`text-xs mt-1 ${subColor[color]}`}>{sub}</p>}
     </div>
   )
@@ -103,7 +103,7 @@ export default function Finanzas() {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-full sm:w-fit">
         <TabBtn active={tab === 'gastos'} onClick={() => setTab('gastos')} icon={<TrendingDown className="w-4 h-4" />}>
           Gastos
         </TabBtn>
@@ -126,7 +126,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+      className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
         active
           ? 'bg-white text-slate-900 shadow-sm'
           : 'text-slate-500 hover:text-slate-700'
@@ -216,7 +216,7 @@ function SeccionGastos() {
       )}
 
       {/* Filtros + botón */}
-      <div className="flex flex-wrap gap-3 items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <Selector value={mes} onChange={setMes}>
             {mesesDisponibles().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -270,12 +270,12 @@ function SeccionGastos() {
               <thead>
                 <tr className="border-b border-slate-100 text-left">
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoría</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Subcategoría</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Categoría</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Subcategoría</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Medio</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Medio</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Estado</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -285,21 +285,21 @@ function SeccionGastos() {
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
                       {new Date(g.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })}
                     </td>
-                    <td className="px-4 py-3"><BadgeCatGasto cat={g.categoria} /></td>
-                    <td className="px-4 py-3 text-slate-600">{LABEL_SUB[g.subcategoria]}</td>
-                    <td className="px-4 py-3 text-slate-800 font-medium max-w-[200px] truncate">{g.descripcion}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">{g.medioPago ? LABEL_MEDIO[g.medioPago] : '—'}</td>
+                    <td className="px-4 py-3 hidden sm:table-cell"><BadgeCatGasto cat={g.categoria} /></td>
+                    <td className="px-4 py-3 text-slate-600 hidden lg:table-cell">{LABEL_SUB[g.subcategoria]}</td>
+                    <td className="px-4 py-3 text-slate-800 font-medium max-w-[140px] sm:max-w-[200px] truncate">{g.descripcion}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs hidden sm:table-cell">{g.medioPago ? LABEL_MEDIO[g.medioPago] : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
                       {ars(Number(g.monto))}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       {g.estado === 'PENDIENTE'
                         ? <BadgePendiente label="Pendiente" />
                         : <BadgeCobrado label="Pagado" />
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <div className="flex gap-1 justify-end sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => abrirEditar(g)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -313,7 +313,7 @@ function SeccionGastos() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50">
-                  <td colSpan={5} className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</td>
+                  <td colSpan={3} className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900">
                     {ars(gastos.reduce((s, g) => s + Number(g.monto), 0))}
                   </td>
@@ -418,7 +418,7 @@ function SeccionIngresos() {
 
       {/* Distribución por tipo */}
       {resumen && resumen.total > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {resumen.porTipo.map(({ tipo, total }) => (
             <div key={tipo} className="bg-white rounded-xl border border-slate-100 p-4">
               <div className="flex items-center justify-between mb-1">
@@ -427,14 +427,14 @@ function SeccionIngresos() {
                   {resumen.total > 0 ? `${Math.round((total / resumen.total) * 100)}%` : '0%'}
                 </span>
               </div>
-              <p className="text-lg font-bold text-slate-900 mt-1">{ars(total)}</p>
+              <p className="text-base sm:text-lg font-bold text-slate-900 mt-1 truncate">{ars(total)}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Filtros + botón */}
-      <div className="flex flex-wrap gap-3 items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <Selector value={mes} onChange={setMes}>
             {mesesDisponibles().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -477,11 +477,11 @@ function SeccionIngresos() {
               <thead>
                 <tr className="border-b border-slate-100 text-left">
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Categoría</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Tipo</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Categoría</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
                   <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Monto</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Estado</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -491,8 +491,8 @@ function SeccionIngresos() {
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
                       {new Date(i.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' })}
                     </td>
-                    <td className="px-4 py-3"><BadgeTipo tipo={i.tipo} /></td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell"><BadgeTipo tipo={i.tipo} /></td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
                       <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${
                         i.categoria === 'FIJO'
                           ? 'bg-blue-50 text-blue-700 border-blue-200'
@@ -501,18 +501,18 @@ function SeccionIngresos() {
                         {LABEL_CAT_ING[i.categoria]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-800 font-medium max-w-[200px] truncate">{i.descripcion}</td>
+                    <td className="px-4 py-3 text-slate-800 font-medium max-w-[140px] sm:max-w-[200px] truncate">{i.descripcion}</td>
                     <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">
                       {ars(Number(i.monto))}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       {i.estado === 'PENDIENTE'
                         ? <BadgePendiente label="Pendiente" />
                         : <BadgeCobrado label="Cobrado" />
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <div className="flex gap-1 justify-end sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => abrirEditar(i)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -526,7 +526,7 @@ function SeccionIngresos() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50">
-                  <td colSpan={4} className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</td>
+                  <td colSpan={2} className="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900">
                     {ars(ingresos.reduce((s, i) => s + Number(i.monto), 0))}
                   </td>
@@ -722,7 +722,7 @@ function SeccionCuotas() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <div className="flex gap-1 justify-end sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => { setMes(c.mes); setMonto(String(Number(c.monto))) }}
                           className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"

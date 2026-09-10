@@ -63,7 +63,7 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
             <Leaf className="w-3.5 h-3.5 text-[#c9b97a]" />
           </div>
           <span className="text-[#e8d9b0] text-sm font-black tracking-widest uppercase flex-1">Flor Vida</span>
-          <button onClick={onCerrar} className="lg:hidden text-slate-500 hover:text-slate-300 transition-colors">
+          <button onClick={onCerrar} className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>

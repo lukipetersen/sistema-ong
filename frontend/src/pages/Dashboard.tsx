@@ -83,14 +83,14 @@ export default function Dashboard() {
     <div className="space-y-6">
 
       {/* Encabezado */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-[#1a1814]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg sm:text-xl font-semibold text-[#1a1814] truncate">
             {saludoSegunHora()}, {usuario?.nombre}
           </h2>
-          <p className="text-sm text-[#9a8f78] mt-0.5 capitalize">{fechaHoy()}</p>
+          <p className="text-sm text-[#9a8f78] mt-0.5 capitalize hidden sm:block">{fechaHoy()}</p>
         </div>
-        <span className="badge-verde">
+        <span className="badge-verde shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-[#4a7030] animate-pulse" />
           Sistema activo
         </span>
