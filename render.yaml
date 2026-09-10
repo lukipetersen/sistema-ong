@@ -33,10 +33,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        fromService:
-          name: sistema-ong-frontend
-          type: web
-          property: url
+        sync: false
 
   # ── Frontend ───────────────────────────────────────────────────────────────
   - type: web
@@ -47,10 +44,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: sistema-ong-backend
-          type: web
-          property: url
+        sync: false
     headers:
       - path: /*
         name: Cache-Control
