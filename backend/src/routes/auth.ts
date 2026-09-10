@@ -18,7 +18,9 @@ router.post('/setup', async (req, res) => {
   const hash = await bcrypt.hash('lucas123', 10)
   const usuario = await prisma.usuario.create({
     data: {
-      nombre: 'Lucas Petersen',
+      cuil: '00000000000',
+      nombre: 'Lucas',
+      apellido: 'Petersen',
       email: 'lukipetersenn@gmail.com',
       password: hash,
       rol: 'ADMINISTRADOR',
