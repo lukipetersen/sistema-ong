@@ -120,24 +120,45 @@ router.post('/importar', async (req: Request, res: Response) => {
       })
     }
 
-    // Deduplicar: traer todos los gastos y comparar por fecha+descripcion+monto
+    // Deduplicar por fecha+monto+categoria+subcategoria (clave estable aunque cambie la descripcion)
     const existentes = await prisma.gasto.findMany({
-      select: { fecha: true, descripcion: true, monto: true },
+      select: { id: true, fecha: true, monto: true, categoria: true, subcategoria: true, descripcion: true, notas: true, medioPago: true, estado: true },
     })
 
-    const clave = (fecha: Date, descripcion: string, monto: number | string) =>
-      `${fecha.toISOString().slice(0, 10)}|${String(descripcion).trim().toLowerCase().replace(/\s+/g, ' ')}|${parseFloat(String(monto))}`
+    const clave = (fecha: Date, monto: number | string, categoria: string, subcategoria: string) =>
+      `${new Date(fecha).toISOString().slice(0, 10)}|${parseFloat(String(monto))}|${categoria}|${subcategoria}`
 
-    const claves = new Set(existentes.map(g => clave(g.fecha, g.descripcion, g.monto.toString())))
+    const mapaExistentes = new Map(existentes.map(g => [clave(g.fecha, g.monto.toString(), g.categoria, g.subcategoria), g]))
 
-    const nuevos   = datos.filter(d => !claves.has(clave(d.fecha, d.descripcion, d.monto)))
-    const omitidos = datos.length - nuevos.length
+    const nuevos: typeof datos    = []
+    let   cantActualizados        = 0
+
+    for (const d of datos) {
+      const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
+      const existente = mapaExistentes.get(k)
+      if (!existente) {
+        nuevos.push(d)
+      } else {
+        // Actualizar solo si cambió algún campo editable
+        const cambio: Record<string, unknown> = {}
+        if (existente.descripcion !== d.descripcion)                cambio.descripcion = d.descripcion
+        if ((existente.notas ?? null) !== (d.notas ?? null))        cambio.notas       = d.notas
+        if ((existente.medioPago ?? null) !== (d.medioPago ?? null)) cambio.medioPago  = d.medioPago
+        if (existente.estado !== d.estado)                          cambio.estado      = d.estado
+        if (Object.keys(cambio).length > 0) {
+          await prisma.gasto.update({ where: { id: existente.id }, data: cambio })
+          cantActualizados++
+        }
+      }
+    }
 
     const { count } = nuevos.length > 0
       ? await prisma.gasto.createMany({ data: nuevos })
       : { count: 0 }
 
-    res.status(201).json({ importados: count, omitidos, errores })
+    const omitidos = datos.length - nuevos.length - cantActualizados
+
+    res.status(201).json({ importados: count, omitidos, actualizados: cantActualizados, errores })
   } catch (e) {
     res.status(500).json({ error: 'Error al importar gastos' })
   }
