@@ -174,7 +174,6 @@ function SeccionGastos() {
   useEffect(() => { cargar() }, [cargar])
 
   useEffect(() => {
-    if (!localStorage.getItem('gastos_sheets_url')) return
     setSyncEstado('syncing')
     autoImportarGastos()
       .then(res => {

@@ -263,7 +263,8 @@ export function procesarRows(rows: Record<string, unknown>[]): { filas: FilaPars
 // ─── Auto-import desde Google Sheets ─────────────────────────────────────────
 
 export async function autoImportarGastos(): Promise<ResultadoImport | null> {
-  const url = localStorage.getItem('gastos_sheets_url')
+  const { data: cfg } = await api.get('/configuracion/gastos_sheets_url')
+  const url = cfg.valor as string | null
   if (!url) return null
 
   const csvUrl = urlCsvDeSheets(url)

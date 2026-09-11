@@ -315,17 +315,26 @@ type Fuente = 'archivo' | 'sheets'
 
 export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [paso, setPaso]             = useState<Paso>('seleccion')
-  const [fuente, setFuente]         = useState<Fuente>(() => localStorage.getItem('gastos_sheets_url') ? 'sheets' : 'archivo')
+  const [fuente, setFuente]         = useState<Fuente>('archivo')
   const [filas, setFilas]           = useState<FilaParseada[]>([])
   const [archivoNombre, setArchivoNombre] = useState('')
   const [importando, setImportando] = useState(false)
   const [resultado, setResultado]   = useState<{ importados: number; omitidos?: number; errores: { fila: number; error: string }[] } | null>(null)
   const [dragOver, setDragOver]     = useState(false)
-  const [sheetsUrl, setSheetsUrl]   = useState(() => localStorage.getItem('gastos_sheets_url') ?? '')
+  const [sheetsUrl, setSheetsUrl]   = useState('')
   const [sheetsError, setSheetsError] = useState('')
   const [sheetsLoading, setSheetsLoading] = useState(false)
   const [desdeFila, setDesdeFila] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.get('/configuracion/gastos_sheets_url').then(({ data }) => {
+      if (data.valor) {
+        setSheetsUrl(data.valor)
+        setFuente('sheets')
+      }
+    }).catch(() => {})
+  }, [])
 
   const procesarArchivo = useCallback((file: File) => {
     if (!file) return
@@ -353,7 +362,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
     setSheetsLoading(true)
     try {
       const url = sheetsUrl.trim()
-      localStorage.setItem('gastos_sheets_url', url)
+      await api.put('/configuracion/gastos_sheets_url', { valor: url })
       const csvUrl = urlCsvDeSheets(url)
       const resp = await fetch(csvUrl)
       if (!resp.ok) throw new Error('No se pudo acceder al sheet. Verificá que esté publicado o sea público.')
@@ -491,9 +500,9 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-slate-700">URL del Google Sheet</label>
-                    {localStorage.getItem('gastos_sheets_url') && (
+                    {sheetsUrl && (
                       <button
-                        onClick={() => { setSheetsUrl(''); localStorage.removeItem('gastos_sheets_url') }}
+                        onClick={() => { setSheetsUrl(''); api.delete('/configuracion/gastos_sheets_url').catch(() => {}) }}
                         className="text-xs text-slate-400 hover:text-red-500 transition-colors"
                       >
                         Cambiar URL
