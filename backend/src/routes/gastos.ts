@@ -121,61 +121,81 @@ router.post('/importar', async (req: Request, res: Response) => {
       })
     }
 
+    // ── Cargar todos los existentes sin sheetsId para fallback por clave ──
+    const sinIdExistentes = await prisma.gasto.findMany({
+      where:  { sheetsId: null },
+      select: { id: true, fecha: true, monto: true, categoria: true, subcategoria: true, descripcion: true, notas: true, medioPago: true, estado: true },
+    })
+
+    const clave = (fecha: Date, monto: number | string, cat: string, sub: string) =>
+      `${new Date(fecha).toISOString().slice(0, 10)}|${parseFloat(String(monto))}|${cat}|${sub}`
+
+    const mapaSinId = new Map(sinIdExistentes.map(g => [clave(g.fecha, g.monto.toString(), g.categoria, g.subcategoria), g]))
+
     // ── Separar filas con ID de Sheets (clave estable) de las que no tienen ──
     const conId  = datos.filter(d => d.sheetsId !== null)
     const sinId  = datos.filter(d => d.sheetsId === null)
 
     let cantActualizados = 0
     let cantInsertados   = 0
+    const nuevosConId: typeof conId = []
 
-    // ── Filas CON sheetsId: upsert completo (actualiza TODOS los campos) ──
+    // ── Filas CON sheetsId ──
     for (const d of conId) {
-      const resultado = await prisma.gasto.upsert({
-        where:  { sheetsId: d.sheetsId! },
-        update: { fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
-        create: { sheetsId: d.sheetsId, fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
-      })
-      // Prisma upsert no indica si fue create o update; comparamos creadoEn ≈ actualizadoEn
-      const diff = Math.abs(resultado.actualizadoEn.getTime() - resultado.creadoEn.getTime())
-      if (diff < 1000) cantInsertados++
-      else             cantActualizados++
+      // 1. Buscar por sheetsId (ya vinculado)
+      const porId = await prisma.gasto.findUnique({ where: { sheetsId: d.sheetsId! } })
+      if (porId) {
+        await prisma.gasto.update({
+          where: { sheetsId: d.sheetsId! },
+          data:  { fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
+        })
+        cantActualizados++
+        continue
+      }
+      // 2. Migración: buscar por clave fecha+monto+cat+sub y asignar sheetsId
+      const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
+      const porClave = mapaSinId.get(k)
+      if (porClave) {
+        await prisma.gasto.update({
+          where: { id: porClave.id },
+          data:  { sheetsId: d.sheetsId, fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
+        })
+        mapaSinId.delete(k) // evitar doble match
+        cantActualizados++
+        continue
+      }
+      // 3. No existe → insertar
+      nuevosConId.push(d)
+    }
+
+    if (nuevosConId.length > 0) {
+      const { count } = await prisma.gasto.createMany({ data: nuevosConId })
+      cantInsertados += count
     }
 
     // ── Filas SIN sheetsId: dedup por fecha+monto+categoria+subcategoria ──
-    if (sinId.length > 0) {
-      const existentes = await prisma.gasto.findMany({
-        where:  { sheetsId: null },
-        select: { id: true, fecha: true, monto: true, categoria: true, subcategoria: true, descripcion: true, notas: true, medioPago: true, estado: true },
-      })
-
-      const clave = (fecha: Date, monto: number | string, cat: string, sub: string) =>
-        `${new Date(fecha).toISOString().slice(0, 10)}|${parseFloat(String(monto))}|${cat}|${sub}`
-
-      const mapaExistentes = new Map(existentes.map(g => [clave(g.fecha, g.monto.toString(), g.categoria, g.subcategoria), g]))
-
-      const nuevos: typeof sinId = []
-      for (const d of sinId) {
-        const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
-        const existente = mapaExistentes.get(k)
-        if (!existente) {
-          nuevos.push(d)
-        } else {
-          const cambio: Record<string, unknown> = {}
-          if (existente.descripcion !== d.descripcion)                 cambio.descripcion = d.descripcion
-          if ((existente.notas ?? null) !== (d.notas ?? null))         cambio.notas       = d.notas
-          if ((existente.medioPago ?? null) !== (d.medioPago ?? null)) cambio.medioPago   = d.medioPago
-          if (existente.estado !== d.estado)                           cambio.estado      = d.estado
-          if (Object.keys(cambio).length > 0) {
-            await prisma.gasto.update({ where: { id: existente.id }, data: cambio })
-            cantActualizados++
-          }
+    const nuevosSinId: typeof sinId = []
+    for (const d of sinId) {
+      const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
+      const existente = mapaSinId.get(k)
+      if (!existente) {
+        nuevosSinId.push(d)
+      } else {
+        const cambio: Record<string, unknown> = {}
+        if (existente.descripcion !== d.descripcion)                 cambio.descripcion = d.descripcion
+        if ((existente.notas ?? null) !== (d.notas ?? null))         cambio.notas       = d.notas
+        if ((existente.medioPago ?? null) !== (d.medioPago ?? null)) cambio.medioPago   = d.medioPago
+        if (existente.estado !== d.estado)                           cambio.estado      = d.estado
+        if (Object.keys(cambio).length > 0) {
+          await prisma.gasto.update({ where: { id: existente.id }, data: cambio })
+          cantActualizados++
         }
       }
+    }
 
-      if (nuevos.length > 0) {
-        const { count } = await prisma.gasto.createMany({ data: nuevos })
-        cantInsertados += count
-      }
+    if (nuevosSinId.length > 0) {
+      const { count } = await prisma.gasto.createMany({ data: nuevosSinId })
+      cantInsertados += count
     }
 
     const omitidos = datos.length - cantInsertados - cantActualizados
