@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Link2, RefreshCw, Search, X, AlertCircle, Loader2, ClipboardList, ChevronUp, ChevronDown } from 'lucide-react'
+import { api } from '@/lib/api'
 
-const LS_KEY = 'forms_sheets_url'
+const CONFIG_CLAVE = 'forms_sheets_url'
 
 function urlCsvDeSheets(url: string): string {
   if (url.includes('/pub') && url.includes('output=csv')) return url
@@ -70,18 +71,19 @@ function parsearCsv(text: string): { headers: string[]; rows: Record<string, str
 type OrdenDir = 'asc' | 'desc'
 
 export default function Forms() {
-  const [urlInput, setUrlInput]   = useState(() => localStorage.getItem(LS_KEY) ?? '')
-  const [urlGuardada, setUrlGuardada] = useState(() => localStorage.getItem(LS_KEY) ?? '')
+  const [urlInput, setUrlInput]   = useState('')
+  const [urlGuardada, setUrlGuardada] = useState('')
   const [headers, setHeaders]     = useState<string[]>([])
   const [rows, setRows]           = useState<Record<string, string>[]>([])
   const [cargando, setCargando]   = useState(false)
+  const [cargandoConfig, setCargandoConfig] = useState(true)
   const [error, setError]         = useState('')
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [busqueda, setBusqueda]   = useState('')
   const [ordenCol, setOrdenCol]   = useState('')
   const [ordenDir, setOrdenDir]   = useState<OrdenDir>('asc')
   const [filaExpandida, setFilaExpandida] = useState<number | null>(null)
-  const [configurando, setConfigurando] = useState(!localStorage.getItem(LS_KEY))
+  const [configurando, setConfigurando] = useState(false)
 
   const cargar = useCallback(async (url: string) => {
     if (!url.trim()) return
@@ -104,16 +106,34 @@ export default function Forms() {
     }
   }, [])
 
+  // Cargar URL desde la DB al montar
   useEffect(() => {
-    if (urlGuardada) cargar(urlGuardada)
+    api.get(`/configuracion/${CONFIG_CLAVE}`)
+      .then(({ data }) => {
+        const url = data.valor ?? ''
+        setUrlGuardada(url)
+        setUrlInput(url)
+        setConfigurando(!url)
+        if (url) cargar(url)
+      })
+      .catch(() => {
+        setConfigurando(true)
+      })
+      .finally(() => {
+        setCargandoConfig(false)
+      })
   }, [])
 
-  function guardarUrl() {
+  async function guardarUrl() {
     if (!urlInput.trim()) return
-    localStorage.setItem(LS_KEY, urlInput.trim())
-    setUrlGuardada(urlInput.trim())
-    setConfigurando(false)
-    cargar(urlInput.trim())
+    try {
+      await api.put(`/configuracion/${CONFIG_CLAVE}`, { valor: urlInput.trim() })
+      setUrlGuardada(urlInput.trim())
+      setConfigurando(false)
+      cargar(urlInput.trim())
+    } catch {
+      setError('No se pudo guardar la configuración.')
+    }
   }
 
   function cambiarSheet() {
@@ -148,6 +168,16 @@ export default function Forms() {
       setOrdenCol(col)
       setOrdenDir('asc')
     }
+  }
+
+  // Pantalla de carga inicial
+  if (cargandoConfig) {
+    return (
+      <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="text-sm">Cargando configuración...</span>
+      </div>
+    )
   }
 
   // ── Pantalla de configuración ──────────────────────────────────────────────
@@ -343,7 +373,7 @@ export default function Forms() {
                   : `${rows.length} respuesta${rows.length !== 1 ? 's' : ''} en total`
                 }
               </p>
-              <p className="text-xs text-slate-400">Hacé click en una fila para ver completo</p>
+              <p className="text-xs text-slate-400 hidden sm:block">Hacé click en una fila para ver completo</p>
             </div>
           )}
         </div>
@@ -351,7 +381,7 @@ export default function Forms() {
 
       {/* Estado vacío inicial */}
       {!cargando && !error && headers.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 flex flex-col items-center gap-3 text-center">
+        <div className="bg-white rounded-2xl border border-slate-200 py-10 px-6 flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
             <ClipboardList className="w-6 h-6 text-slate-400" />
           </div>
