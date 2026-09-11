@@ -4,6 +4,7 @@ import { api } from '@/lib/api'
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export interface FilaParseada {
+  sheetsId: string | null
   fecha: string
   categoria: string
   subcategoria: string
@@ -30,6 +31,7 @@ export const normVal = (v: string) =>
   v.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export const HEADER_MAP: Record<string, keyof FilaParseada> = {
+  id: 'sheetsId', codigo: 'sheetsId', code: 'sheetsId', sheetsid: 'sheetsId', identificador: 'sheetsId', num: 'sheetsId',
   fecha: 'fecha', date: 'fecha',
   categoria: 'categoria', category: 'categoria',
   subcategoria: 'subcategoria', subcategory: 'subcategoria',
@@ -233,6 +235,8 @@ export function validarFila(raw: Record<string, unknown>, headerMap: Record<stri
 
   const descripcion = get('descripcion')
   const notas = get('notas')
+  const sheetsIdRaw = get('sheetsId')
+  const sheetsId = sheetsIdRaw !== '' ? sheetsIdRaw : null
 
   let errorFila: string | null = null
   if (!fechaParsed)                              errorFila = 'Fecha inválida o faltante'
@@ -241,7 +245,7 @@ export function validarFila(raw: Record<string, unknown>, headerMap: Record<stri
   else if (!descripcion)                         errorFila = 'Falta la descripción'
   else if (monto === null || isNaN(monto) || monto <= 0) errorFila = 'Monto inválido'
 
-  return { fecha: fechaParsed ?? '', categoria, subcategoria, descripcion, monto, medioPago, estado, notas, errorFila }
+  return { sheetsId, fecha: fechaParsed ?? '', categoria, subcategoria, descripcion, monto, medioPago, estado, notas, errorFila }
 }
 
 // ─── Procesar rows crudos ─────────────────────────────────────────────────────
@@ -280,6 +284,7 @@ export async function autoImportarGastos(): Promise<ResultadoImport | null> {
 
   const { data } = await api.post('/gastos/importar', {
     gastos: validas.map(f => ({
+      sheetsId:     f.sheetsId || null,
       fecha:        f.fecha,
       categoria:    f.categoria,
       subcategoria: f.subcategoria,

@@ -91,7 +91,7 @@ router.post('/importar', async (req: Request, res: Response) => {
     type FilaGasto = {
       fecha: Date; categoria: CategoriaGasto; subcategoria: SubcategoriaGasto
       descripcion: string; monto: number; medioPago: MedioPago | null
-      estado: EstadoGasto; notas: string | null
+      estado: EstadoGasto; notas: string | null; sheetsId: string | null
     }
     const datos: FilaGasto[] = []
     const errores: { fila: number; error: string }[] = []
@@ -117,48 +117,70 @@ router.post('/importar', async (req: Request, res: Response) => {
         medioPago:    (g.medioPago && String(g.medioPago) !== '') ? String(g.medioPago) as MedioPago : null,
         estado:       (g.estado ? String(g.estado) : 'PAGADO') as EstadoGasto,
         notas:        g.notas ? String(g.notas) : null,
+        sheetsId:     (g.sheetsId && String(g.sheetsId).trim() !== '') ? String(g.sheetsId).trim() : null,
       })
     }
 
-    // Deduplicar por fecha+monto+categoria+subcategoria (clave estable aunque cambie la descripcion)
-    const existentes = await prisma.gasto.findMany({
-      select: { id: true, fecha: true, monto: true, categoria: true, subcategoria: true, descripcion: true, notas: true, medioPago: true, estado: true },
-    })
+    // ── Separar filas con ID de Sheets (clave estable) de las que no tienen ──
+    const conId  = datos.filter(d => d.sheetsId !== null)
+    const sinId  = datos.filter(d => d.sheetsId === null)
 
-    const clave = (fecha: Date, monto: number | string, categoria: string, subcategoria: string) =>
-      `${new Date(fecha).toISOString().slice(0, 10)}|${parseFloat(String(monto))}|${categoria}|${subcategoria}`
+    let cantActualizados = 0
+    let cantInsertados   = 0
 
-    const mapaExistentes = new Map(existentes.map(g => [clave(g.fecha, g.monto.toString(), g.categoria, g.subcategoria), g]))
+    // ── Filas CON sheetsId: upsert completo (actualiza TODOS los campos) ──
+    for (const d of conId) {
+      const resultado = await prisma.gasto.upsert({
+        where:  { sheetsId: d.sheetsId! },
+        update: { fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
+        create: { sheetsId: d.sheetsId, fecha: d.fecha, categoria: d.categoria, subcategoria: d.subcategoria, descripcion: d.descripcion, monto: d.monto, medioPago: d.medioPago, estado: d.estado, notas: d.notas },
+      })
+      // Prisma upsert no indica si fue create o update; comparamos creadoEn ≈ actualizadoEn
+      const diff = Math.abs(resultado.actualizadoEn.getTime() - resultado.creadoEn.getTime())
+      if (diff < 1000) cantInsertados++
+      else             cantActualizados++
+    }
 
-    const nuevos: typeof datos    = []
-    let   cantActualizados        = 0
+    // ── Filas SIN sheetsId: dedup por fecha+monto+categoria+subcategoria ──
+    if (sinId.length > 0) {
+      const existentes = await prisma.gasto.findMany({
+        where:  { sheetsId: null },
+        select: { id: true, fecha: true, monto: true, categoria: true, subcategoria: true, descripcion: true, notas: true, medioPago: true, estado: true },
+      })
 
-    for (const d of datos) {
-      const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
-      const existente = mapaExistentes.get(k)
-      if (!existente) {
-        nuevos.push(d)
-      } else {
-        // Actualizar solo si cambió algún campo editable
-        const cambio: Record<string, unknown> = {}
-        if (existente.descripcion !== d.descripcion)                cambio.descripcion = d.descripcion
-        if ((existente.notas ?? null) !== (d.notas ?? null))        cambio.notas       = d.notas
-        if ((existente.medioPago ?? null) !== (d.medioPago ?? null)) cambio.medioPago  = d.medioPago
-        if (existente.estado !== d.estado)                          cambio.estado      = d.estado
-        if (Object.keys(cambio).length > 0) {
-          await prisma.gasto.update({ where: { id: existente.id }, data: cambio })
-          cantActualizados++
+      const clave = (fecha: Date, monto: number | string, cat: string, sub: string) =>
+        `${new Date(fecha).toISOString().slice(0, 10)}|${parseFloat(String(monto))}|${cat}|${sub}`
+
+      const mapaExistentes = new Map(existentes.map(g => [clave(g.fecha, g.monto.toString(), g.categoria, g.subcategoria), g]))
+
+      const nuevos: typeof sinId = []
+      for (const d of sinId) {
+        const k = clave(d.fecha, d.monto, d.categoria, d.subcategoria)
+        const existente = mapaExistentes.get(k)
+        if (!existente) {
+          nuevos.push(d)
+        } else {
+          const cambio: Record<string, unknown> = {}
+          if (existente.descripcion !== d.descripcion)                 cambio.descripcion = d.descripcion
+          if ((existente.notas ?? null) !== (d.notas ?? null))         cambio.notas       = d.notas
+          if ((existente.medioPago ?? null) !== (d.medioPago ?? null)) cambio.medioPago   = d.medioPago
+          if (existente.estado !== d.estado)                           cambio.estado      = d.estado
+          if (Object.keys(cambio).length > 0) {
+            await prisma.gasto.update({ where: { id: existente.id }, data: cambio })
+            cantActualizados++
+          }
         }
+      }
+
+      if (nuevos.length > 0) {
+        const { count } = await prisma.gasto.createMany({ data: nuevos })
+        cantInsertados += count
       }
     }
 
-    const { count } = nuevos.length > 0
-      ? await prisma.gasto.createMany({ data: nuevos })
-      : { count: 0 }
+    const omitidos = datos.length - cantInsertados - cantActualizados
 
-    const omitidos = datos.length - nuevos.length - cantActualizados
-
-    res.status(201).json({ importados: count, omitidos, actualizados: cantActualizados, errores })
+    res.status(201).json({ importados: cantInsertados, omitidos, actualizados: cantActualizados, errores })
   } catch (e) {
     res.status(500).json({ error: 'Error al importar gastos' })
   }

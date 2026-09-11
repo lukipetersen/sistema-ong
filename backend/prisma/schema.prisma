@@ -189,6 +189,7 @@ model Sesion {
 
 model Gasto {
   id            String            @id @default(cuid())
+  sheetsId      String?           @unique
   fecha         DateTime
   categoria     CategoriaGasto
   subcategoria  SubcategoriaGasto

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { X, Upload, Download, CheckCircle2, AlertCircle, FileSpreadsheet, Loader2, Link } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
 interface FilaParseada {
+  sheetsId: string | null
   fecha: string
   categoria: string
   subcategoria: string
@@ -28,6 +29,7 @@ const normHeader = (h: string) =>
   h.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s_\-]/g, '')
 
 const HEADER_MAP: Record<string, keyof FilaParseada> = {
+  id: 'sheetsId', codigo: 'sheetsId', code: 'sheetsId', sheetsid: 'sheetsId', identificador: 'sheetsId', num: 'sheetsId',
   fecha: 'fecha', date: 'fecha',
   categoria: 'categoria', category: 'categoria',
   subcategoria: 'subcategoria', subcategory: 'subcategoria',
@@ -150,6 +152,8 @@ function validarFila(raw: Record<string, unknown>, headerMap: Record<string, key
 
   const descripcion = get('descripcion')
   const notas = get('notas')
+  const sheetsIdRaw = get('sheetsId')
+  const sheetsId = sheetsIdRaw !== '' ? sheetsIdRaw : null
 
   let errorFila: string | null = null
   if (!fechaParsed)          errorFila = 'Fecha inválida o faltante'
@@ -158,7 +162,7 @@ function validarFila(raw: Record<string, unknown>, headerMap: Record<string, key
   else if (!descripcion)     errorFila = 'Falta la descripción'
   else if (monto === null || isNaN(monto) || monto <= 0) errorFila = 'Monto inválido'
 
-  return { fecha: fechaParsed ?? '', categoria, subcategoria, descripcion, monto, medioPago, estado, notas, errorFila }
+  return { sheetsId, fecha: fechaParsed ?? '', categoria, subcategoria, descripcion, monto, medioPago, estado, notas, errorFila }
 }
 
 // ─── Parseo común ─────────────────────────────────────────────────────────────
@@ -295,14 +299,14 @@ const ars = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 
 function descargarPlantilla() {
-  const headers = ['Fecha', 'Categoría', 'Subcategoría', 'Descripción', 'Monto', 'Medio de pago', 'Estado', 'Notas']
+  const headers = ['ID', 'Fecha', 'Categoría', 'Subcategoría', 'Descripción', 'Monto', 'Medio de pago', 'Estado', 'Notas']
   const ejemplos = [
-    ['01/05/2026', 'Fijos',         'Alquiler', 'Alquiler mayo',       15000, 'Transferencia', 'Pagado', ''],
-    ['05/05/2026', 'Variables',     'Insumos',  'Compra de sustrato',   3200, 'Efectivo',      'Pagado', ''],
-    ['15/05/2026', 'Administracion','Sueldos',  'Sueldo coordinadora', 80000, 'Transferencia', 'Pagado', ''],
+    [1, '01/05/2026', 'Fijos',         'Alquiler', 'Alquiler mayo',       15000, 'Transferencia', 'Pagado', ''],
+    [2, '05/05/2026', 'Variables',     'Insumos',  'Compra de sustrato',   3200, 'Efectivo',      'Pagado', ''],
+    [3, '15/05/2026', 'Administracion','Sueldos',  'Sueldo coordinadora', 80000, 'Transferencia', 'Pagado', ''],
   ]
   const ws = XLSX.utils.aoa_to_sheet([headers, ...ejemplos])
-  ws['!cols'] = [12, 16, 16, 28, 10, 18, 12, 20].map(w => ({ wch: w }))
+  ws['!cols'] = [6, 12, 16, 16, 28, 10, 18, 12, 20].map(w => ({ wch: w }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Gastos')
   XLSX.writeFile(wb, 'plantilla_gastos.xlsx')
@@ -319,7 +323,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
   const [filas, setFilas]           = useState<FilaParseada[]>([])
   const [archivoNombre, setArchivoNombre] = useState('')
   const [importando, setImportando] = useState(false)
-  const [resultado, setResultado]   = useState<{ importados: number; omitidos?: number; errores: { fila: number; error: string }[] } | null>(null)
+  const [resultado, setResultado]   = useState<{ importados: number; omitidos?: number; actualizados?: number; errores: { fila: number; error: string }[] } | null>(null)
   const [dragOver, setDragOver]     = useState(false)
   const [sheetsUrl, setSheetsUrl]   = useState('')
   const [sheetsError, setSheetsError] = useState('')
@@ -389,6 +393,7 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
     try {
       const { data } = await api.post('/gastos/importar', {
         gastos: validas.map(f => ({
+          sheetsId:     f.sheetsId || null,
           fecha:        f.fecha,
           categoria:    f.categoria,
           subcategoria: f.subcategoria,
@@ -658,6 +663,9 @@ export default function ModalImportarGastos({ onImportado, onCerrar }: Props) {
               <p className="text-lg font-semibold text-slate-900">
                 {resultado.importados} gasto{resultado.importados !== 1 ? 's' : ''} importado{resultado.importados !== 1 ? 's' : ''}
               </p>
+              {(resultado.actualizados ?? 0) > 0 && (
+                <p className="text-sm text-[#4a7030]">{resultado.actualizados} actualizado{resultado.actualizados !== 1 ? 's' : ''}</p>
+              )}
               {(resultado.omitidos ?? 0) > 0 && (
                 <p className="text-sm text-slate-500">{resultado.omitidos} ya existían y fueron omitidos</p>
               )}
