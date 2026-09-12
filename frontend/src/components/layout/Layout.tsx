@@ -30,11 +30,11 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar abierto={sidebarAbierto} onCerrar={() => setSidebarAbierto(false)} />
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#f7f5ef]">
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-[#f7f5ef]">
 
         {/* Topbar */}
         <header
-          className="shrink-0 bg-[#faf8f3] border-b border-[#ede8dc] flex items-center justify-between px-4 lg:px-6"
+          className="sticky top-0 z-20 shrink-0 bg-[#faf8f3] border-b border-[#ede8dc] flex items-center justify-between px-4 lg:px-6"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             height: 'calc(3.5rem + env(safe-area-inset-top))',
@@ -66,7 +66,7 @@ export default function Layout() {
         </header>
 
         {/* Contenido principal */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1">
           <div
             className="p-4 lg:p-6 max-w-7xl mx-auto"
             style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
