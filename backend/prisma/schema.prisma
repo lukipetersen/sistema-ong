@@ -15,6 +15,7 @@ enum Rol {
   COORDINADOR
   OPERADOR
   SOLO_LECTURA
+  SOLO_STOCK
 }
 
 enum Sexo {

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { api } from '@/lib/api'
 
-export type Rol = 'ADMINISTRADOR' | 'COORDINADOR' | 'OPERADOR' | 'SOLO_LECTURA'
+export type Rol = 'ADMINISTRADOR' | 'COORDINADOR' | 'OPERADOR' | 'SOLO_LECTURA' | 'SOLO_STOCK'
 
 export interface UsuarioAuth {
   id: string
