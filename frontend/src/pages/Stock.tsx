@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, TrendingUp, TrendingDown, Package,
   Trash2, X, AlertCircle, ChevronDown, Loader2,
+  RefreshCw, Settings, CheckCircle2,
 } from 'lucide-react'
 import { api } from '@/lib/api'
+import { autoImportarMovimientos, ResultadoImportStock } from '@/utils/stock-import'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,84 @@ function mesActual() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+// ─── Modal: configurar Sheets URL ────────────────────────────────────────────
+
+function ModalConfigSheets({ urlActual, onGuardar, onCerrar }: {
+  urlActual: string
+  onGuardar: (url: string) => void
+  onCerrar: () => void
+}) {
+  const [url, setUrl]         = useState(urlActual)
+  const [guardando, setGuard] = useState(false)
+  const [error, setError]     = useState('')
+
+  async function guardar() {
+    const u = url.trim()
+    if (!u) { onGuardar(''); return }
+    if (!u.includes('spreadsheets/d/')) { setError('Pegá la URL de Google Sheets'); return }
+    setGuard(true)
+    try {
+      await api.put('/configuracion/stock_sheets_url', { valor: u })
+      onGuardar(u)
+      onCerrar()
+    } catch {
+      setError('No se pudo guardar la configuración')
+    } finally {
+      setGuard(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Sincronización con Google Sheets</h2>
+          <button onClick={onCerrar} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-slate-500">
+            Pegá la URL de tu Google Sheets de movimientos de stock.
+            El sistema importará los datos automáticamente al entrar a esta página.
+          </p>
+          <p className="text-xs text-slate-400 bg-[#f7f5ef] rounded-lg px-3 py-2">
+            La hoja debe tener columnas: <strong>ID, Genética, Tipo, Cantidad, Fecha, Observaciones</strong>.<br />
+            "Tipo" acepta: Ingreso / Egreso (o In / Out).
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">URL del Sheet</label>
+            <input
+              type="url"
+              value={url}
+              onChange={e => { setUrl(e.target.value); setError('') }}
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+              className="campo w-full text-sm"
+            />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+            </div>
+          )}
+        </div>
+        <div className="px-6 pb-5 flex gap-3">
+          <button onClick={onCerrar} className="flex-1 py-2.5 text-sm rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700">
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className="flex-1 py-2.5 text-sm rounded-xl bg-[#4a7030] text-white font-medium hover:bg-[#3d5e28] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {guardando ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</> : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal: crear movimiento ──────────────────────────────────────────────────
 
 function ModalMovimiento({
@@ -73,6 +153,7 @@ function ModalMovimiento({
   const [observaciones, setObs]       = useState('')
   const [guardando, setGuardando]     = useState(false)
   const [error, setError]             = useState('')
+  const [alertaNegativo, setAlerta]   = useState<{ stockActual: number; genetica: string } | null>(null)
 
   async function guardar() {
     if (!geneticaId || !cantidad || !fecha) { setError('Completá los campos obligatorios'); return }
@@ -83,15 +164,45 @@ function ModalMovimiento({
     setGuardando(true)
     setError('')
     try {
-      await api.post('/movimientos-stock', { geneticaId, tipo, cantidadGramos, fecha, observaciones: observaciones || null })
+      const { data } = await api.post('/movimientos-stock', { geneticaId, tipo, cantidadGramos, fecha, observaciones: observaciones || null })
+      if (data.stockNegativo) {
+        const g = geneticas.find(g => g.id === geneticaId)
+        setAlerta({ stockActual: data.stockActual, genetica: g?.nombre ?? '' })
+      }
       onGuardar()
-      onCerrar()
+      if (!data.stockNegativo) onCerrar()
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       setError(msg ?? 'Error al guardar el movimiento')
     } finally {
       setGuardando(false)
     }
+  }
+
+  if (alertaNegativo) {
+    return (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-slate-900 text-sm">Movimiento registrado con stock negativo</p>
+              <p className="text-sm text-slate-500 mt-1">
+                El stock de <strong>{alertaNegativo.genetica}</strong> quedó en{' '}
+                <strong className="text-red-600">{fmtStock(alertaNegativo.stockActual)}</strong>.
+                Verificá los movimientos de esa genética.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onCerrar}
+            className="w-full py-2.5 text-sm rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -234,6 +345,8 @@ function ModalMovimiento({
 
 type Tab = 'movimientos' | 'por-genetica'
 
+type SyncEstado = 'idle' | 'syncing' | 'ok' | 'error'
+
 export default function Stock() {
   const [tab, setTab]                 = useState<Tab>('movimientos')
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
@@ -245,6 +358,14 @@ export default function Stock() {
   const [confirmarElim, setConfirmarElim] = useState<Movimiento | null>(null)
   const [eliminando, setEliminando]   = useState(false)
   const [errorElim, setErrorElim]     = useState('')
+  const [alertaElimNegativo, setAlertaElimNegativo] = useState<number | null>(null)
+
+  // Sheets sync
+  const [sheetsUrl, setSheetsUrl]     = useState('')
+  const [syncEstado, setSyncEstado]   = useState<SyncEstado>('idle')
+  const [syncResultado, setSyncResult] = useState<ResultadoImportStock | null>(null)
+  const [modalConfig, setModalConfig] = useState(false)
+  const sincronizadoRef               = useRef(false)
 
   // Filtros
   const [filtroGenetica, setFiltroGenetica] = useState('')
@@ -275,11 +396,68 @@ export default function Stock() {
 
   const cargarGeneticas = useCallback(async () => {
     const { data } = await api.get('/geneticas')
-    setGeneticas(data.map((g: { id: string; nombre: string }) => ({ id: g.id, nombre: g.nombre })))
+    const lista = data.map((g: { id: string; nombre: string }) => ({ id: g.id, nombre: g.nombre })) as GeneticaOption[]
+    setGeneticas(lista)
+    return lista
   }, [])
 
-  useEffect(() => { cargarGeneticas() }, [cargarGeneticas])
-  useEffect(() => { cargarResumen() },  [cargarResumen])
+  // Auto-sync al montar (una sola vez por sesión)
+  const sincronizar = useCallback(async (lista?: GeneticaOption[]) => {
+    setSyncEstado('syncing')
+    try {
+      const gList = lista ?? geneticas
+      const mapa = new Map(gList.map(g => [g.nombre, g.id]))
+      const res = await autoImportarMovimientos(mapa)
+      setSyncResult(res)
+      setSyncEstado(res === null ? 'idle' : 'ok')
+      if (res && (res.importados > 0 || res.actualizados > 0)) {
+        await Promise.all([cargarMovimientos(), cargarResumen()])
+      }
+    } catch {
+      setSyncEstado('error')
+    }
+  }, [geneticas, cargarMovimientos, cargarResumen])
+
+  useEffect(() => {
+    let cancelado = false
+    async function init() {
+      const lista = await cargarGeneticas()
+      if (cancelado) return
+      await Promise.all([cargarMovimientos(), cargarResumen()])
+
+      // Cargar URL configurada
+      try {
+        const { data: cfg } = await api.get('/configuracion/stock_sheets_url')
+        const url = cfg.valor as string | null
+        if (!cancelado) setSheetsUrl(url ?? '')
+
+        // Auto-sync solo la primera vez por sesión
+        if (url && !sincronizadoRef.current) {
+          sincronizadoRef.current = true
+          setSyncEstado('syncing')
+          try {
+            const mapa = new Map(lista.map(g => [g.nombre, g.id]))
+            const res = await autoImportarMovimientos(mapa)
+            if (!cancelado) {
+              setSyncResult(res)
+              setSyncEstado(res === null ? 'idle' : 'ok')
+              if (res && (res.importados > 0 || res.actualizados > 0)) {
+                await Promise.all([cargarMovimientos(), cargarResumen()])
+              }
+            }
+          } catch {
+            if (!cancelado) setSyncEstado('error')
+          }
+        }
+      } catch {
+        // No hay URL configurada o endpoint no existe aún
+      }
+    }
+    init()
+    return () => { cancelado = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => { setPage(1) }, [filtroGenetica, filtroTipo, filtroMes])
   useEffect(() => { cargarMovimientos() }, [cargarMovimientos])
 
@@ -288,10 +466,10 @@ export default function Stock() {
     setEliminando(true)
     setErrorElim('')
     try {
-      await api.delete(`/movimientos-stock/${confirmarElim.id}`)
+      const { data } = await api.delete(`/movimientos-stock/${confirmarElim.id}`)
       setConfirmarElim(null)
-      cargarMovimientos()
-      cargarResumen()
+      await Promise.all([cargarMovimientos(), cargarResumen()])
+      if (data.stockNegativo) setAlertaElimNegativo(data.stockActual)
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       setErrorElim(msg ?? 'Error al eliminar')
@@ -335,7 +513,29 @@ export default function Stock() {
         </div>
       </div>
 
-      {/* ─── Tabs + botón ─── */}
+      {/* ─── Banner de sync ─── */}
+      {syncEstado === 'syncing' && (
+        <div className="flex items-center gap-2 text-sm text-[#7a6840] bg-[#faf8f3] border border-[#ede8dc] rounded-xl px-4 py-2.5">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          Sincronizando movimientos con Google Sheets...
+        </div>
+      )}
+      {syncEstado === 'ok' && syncResultado && (syncResultado.importados > 0 || syncResultado.actualizados > 0) && (
+        <div className="flex items-center gap-2 text-sm text-[#4a7030] bg-[#edf5e0] border border-[#c8e0a0] rounded-xl px-4 py-2.5">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          Sheets sincronizado: {syncResultado.importados} nuevo{syncResultado.importados !== 1 ? 's' : ''}
+          {syncResultado.actualizados > 0 && `, ${syncResultado.actualizados} actualizado${syncResultado.actualizados !== 1 ? 's' : ''}`}
+          {syncResultado.omitidos > 0 && `, ${syncResultado.omitidos} sin cambios`}
+        </div>
+      )}
+      {syncEstado === 'error' && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          No se pudo sincronizar con Google Sheets. Verificá la URL en configuración.
+        </div>
+      )}
+
+      {/* ─── Tabs + botones ─── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1 p-1 bg-[#f0ebe0] rounded-xl">
           {([['movimientos', 'Movimientos'], ['por-genetica', 'Por Genética']] as [Tab, string][]).map(([t, label]) => (
@@ -350,12 +550,33 @@ export default function Stock() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setModal({ abierto: true })}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4a7030] text-white rounded-xl text-sm font-medium hover:bg-[#3d5e28] transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Registrar movimiento
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setModalConfig(true)}
+            title="Configurar Google Sheets"
+            className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-colors ${
+              sheetsUrl ? 'border-[#4a7030] text-[#4a7030] bg-[#edf5e0] hover:bg-[#dff0c0]' : 'border-[#ede8dc] text-slate-400 hover:bg-[#f0ebe0]'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          {sheetsUrl && (
+            <button
+              onClick={() => sincronizar()}
+              disabled={syncEstado === 'syncing'}
+              title="Sincronizar ahora"
+              className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#ede8dc] text-slate-400 hover:bg-[#f0ebe0] disabled:opacity-40 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncEstado === 'syncing' ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+          <button
+            onClick={() => setModal({ abierto: true })}
+            className="flex items-center gap-2 px-4 py-2 bg-[#4a7030] text-white rounded-xl text-sm font-medium hover:bg-[#3d5e28] transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Registrar
+          </button>
+        </div>
       </div>
 
       {/* ─── Tab: Movimientos ─── */}
@@ -529,6 +750,15 @@ export default function Stock() {
         </div>
       )}
 
+      {/* ─── Modal configurar Sheets ─── */}
+      {modalConfig && (
+        <ModalConfigSheets
+          urlActual={sheetsUrl}
+          onGuardar={url => { setSheetsUrl(url); setSyncEstado('idle'); setSyncResult(null) }}
+          onCerrar={() => setModalConfig(false)}
+        />
+      )}
+
       {/* ─── Modal nuevo movimiento ─── */}
       {modal.abierto && (
         <ModalMovimiento
@@ -573,6 +803,31 @@ export default function Stock() {
                 {eliminando ? <><Loader2 className="w-4 h-4 animate-spin" />Eliminando...</> : 'Eliminar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Alerta stock negativo post-eliminación ─── */}
+      {alertaElimNegativo !== null && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-slate-900 text-sm">Stock negativo tras la eliminación</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  El movimiento fue eliminado, pero el stock de la genética quedó en{' '}
+                  <strong className="text-red-600">{fmtStock(alertaElimNegativo)}</strong>.
+                  Revisá los movimientos de esa genética.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setAlertaElimNegativo(null)}
+              className="w-full py-2.5 text-sm rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}
