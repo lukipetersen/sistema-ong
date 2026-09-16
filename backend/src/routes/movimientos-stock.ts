@@ -91,8 +91,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 // ─── POST /api/movimientos-stock/importar ────────────────────────────────────
 // Importación desde Sheets o histórica. Usa sheetsId como clave estable.
-// Si sheetsId coincide → upsert con recálculo de delta de stock.
-// Si no tiene sheetsId → fallback por fecha+geneticaId+tipo+cantidadGramos.
+// Al final recalcula stockGramos desde cero por cada genética afectada.
 router.post('/importar', async (req: Request, res: Response) => {
   try {
     const { movimientos: raw } = req.body as { movimientos: unknown[] }
@@ -113,12 +112,12 @@ router.post('/importar', async (req: Request, res: Response) => {
       if (!m.cantidadGramos || Number(m.cantidadGramos) <= 0) { errores.push({ fila, error: 'Cantidad inválida' }); continue }
       if (!m.fecha)                                           { errores.push({ fila, error: 'Falta fecha' }); continue }
       datos.push({
-        sheetsId:      (m.sheetsId && String(m.sheetsId).trim()) ? String(m.sheetsId).trim() : null,
-        geneticaId:    String(m.geneticaId),
-        tipo:          String(m.tipo) as TipoMovimiento,
+        sheetsId:       (m.sheetsId && String(m.sheetsId).trim()) ? String(m.sheetsId).trim() : null,
+        geneticaId:     String(m.geneticaId),
+        tipo:           String(m.tipo) as TipoMovimiento,
         cantidadGramos: Math.round(Number(m.cantidadGramos)),
-        fecha:         new Date(String(m.fecha)),
-        observaciones: m.observaciones ? String(m.observaciones) : null,
+        fecha:          new Date(String(m.fecha)),
+        observaciones:  m.observaciones ? String(m.observaciones) : null,
       })
     }
 
@@ -127,17 +126,16 @@ router.post('/importar', async (req: Request, res: Response) => {
     const conId = datos.filter(d => d.sheetsId !== null)
     const sinId = datos.filter(d => d.sheetsId === null)
 
-    let cantInsertados  = 0
+    let cantInsertados   = 0
     let cantActualizados = 0
 
-    // Mapa para acumular deltas de stock por genética (aplicar una sola vez al final)
-    const stockDeltas = new Map<string, number>()
-    const sumarDelta  = (gId: string, d: number) => stockDeltas.set(gId, (stockDeltas.get(gId) ?? 0) + d)
+    // Genéticas afectadas (para recalcular stock al final)
+    const geneticasAfectadas = new Set<string>(datos.map(d => d.geneticaId))
 
     // Existentes sin sheetsId para fallback de migración
     const existentesSinId = await prisma.movimientoStock.findMany({
       where:  { sheetsId: null },
-      select: { id: true, sheetsId: true, geneticaId: true, tipo: true, cantidadGramos: true, fecha: true, observaciones: true },
+      select: { id: true, geneticaId: true, tipo: true, cantidadGramos: true, fecha: true, observaciones: true },
     })
     const claveFallback = (r: typeof existentesSinId[0]) =>
       `${new Date(r.fecha).toISOString().slice(0, 10)}|${r.geneticaId}|${r.tipo}|${r.cantidadGramos}`
@@ -147,31 +145,18 @@ router.post('/importar', async (req: Request, res: Response) => {
 
       // ── Filas CON sheetsId ────────────────────────────────────────────────
       for (const d of conId) {
-        // 1. Buscar por sheetsId
         const porId = await tx.movimientoStock.findUnique({ where: { sheetsId: d.sheetsId! } })
 
         if (porId) {
-          // Verificar si hay cambios reales
           const sinCambios =
-            porId.geneticaId    === d.geneticaId &&
-            porId.tipo          === d.tipo &&
+            porId.geneticaId     === d.geneticaId &&
+            porId.tipo           === d.tipo &&
             porId.cantidadGramos === d.cantidadGramos &&
             new Date(porId.fecha).toISOString().slice(0, 10) === d.fecha.toISOString().slice(0, 10) &&
             (porId.observaciones ?? null) === (d.observaciones ?? null)
 
           if (!sinCambios) {
-            // Calcular ajuste neto de stock
-            const oldDelta = porId.tipo === 'INGRESO' ? porId.cantidadGramos : -porId.cantidadGramos
-            const newDelta = d.tipo    === 'INGRESO' ? d.cantidadGramos    : -d.cantidadGramos
-
-            if (porId.geneticaId !== d.geneticaId) {
-              // La genética cambió: revertir en la vieja, aplicar en la nueva
-              sumarDelta(porId.geneticaId, -oldDelta)
-              sumarDelta(d.geneticaId,      newDelta)
-            } else {
-              sumarDelta(d.geneticaId, newDelta - oldDelta)
-            }
-
+            if (porId.geneticaId !== d.geneticaId) geneticasAfectadas.add(porId.geneticaId)
             await tx.movimientoStock.update({
               where: { sheetsId: d.sheetsId! },
               data:  { geneticaId: d.geneticaId, tipo: d.tipo, cantidadGramos: d.cantidadGramos, fecha: d.fecha, observaciones: d.observaciones },
@@ -181,7 +166,7 @@ router.post('/importar', async (req: Request, res: Response) => {
           continue
         }
 
-        // 2. Migración: buscar por clave entre registros sin sheetsId
+        // Migración: buscar por clave entre registros sin sheetsId
         const k = `${d.fecha.toISOString().slice(0, 10)}|${d.geneticaId}|${d.tipo}|${d.cantidadGramos}`
         const porClave = mapaFallback.get(k)
         if (porClave) {
@@ -194,27 +179,31 @@ router.post('/importar', async (req: Request, res: Response) => {
           continue
         }
 
-        // 3. Insertar nuevo
         await tx.movimientoStock.create({ data: d })
-        sumarDelta(d.geneticaId, d.tipo === 'INGRESO' ? d.cantidadGramos : -d.cantidadGramos)
         cantInsertados++
       }
 
-      // ── Filas SIN sheetsId: fallback por clave ────────────────────────────
+      // ── Filas SIN sheetsId ────────────────────────────────────────────────
       for (const d of sinId) {
         const k = `${d.fecha.toISOString().slice(0, 10)}|${d.geneticaId}|${d.tipo}|${d.cantidadGramos}`
-        if (mapaFallback.has(k)) continue  // ya existe, omitir
+        if (mapaFallback.has(k)) continue
 
         await tx.movimientoStock.create({ data: d })
-        sumarDelta(d.geneticaId, d.tipo === 'INGRESO' ? d.cantidadGramos : -d.cantidadGramos)
         cantInsertados++
       }
 
-      // ── Aplicar todos los deltas de stock de una vez ──────────────────────
-      for (const [geneticaId, delta] of stockDeltas) {
-        if (delta !== 0) {
-          await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: { increment: delta } } })
-        }
+      // ── Recalcular stockGramos exacto por cada genética afectada ─────────
+      // (suma todos sus movimientos → garantiza consistencia sin importar historial)
+      for (const geneticaId of geneticasAfectadas) {
+        const movs = await tx.movimientoStock.findMany({
+          where:  { geneticaId },
+          select: { tipo: true, cantidadGramos: true },
+        })
+        const stock = movs.reduce(
+          (sum, m) => sum + (m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos),
+          0
+        )
+        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: stock } })
       }
     })
 
@@ -222,6 +211,37 @@ router.post('/importar', async (req: Request, res: Response) => {
     res.status(201).json({ importados: cantInsertados, actualizados: cantActualizados, omitidos, errores })
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al importar' })
+  }
+})
+
+// ─── POST /api/movimientos-stock/recalcular ───────────────────────────────────
+// Recalcula stockGramos de TODAS las genéticas desde sus movimientos.
+// Usar cuando el stock muestre valores incorrectos.
+router.post('/recalcular', async (_req: Request, res: Response) => {
+  try {
+    const [movimientos, geneticas] = await Promise.all([
+      prisma.movimientoStock.findMany({ select: { geneticaId: true, tipo: true, cantidadGramos: true } }),
+      prisma.genetica.findMany({ select: { id: true } }),
+    ])
+
+    const stocks = new Map<string, number>()
+    for (const m of movimientos) {
+      const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      stocks.set(m.geneticaId, (stocks.get(m.geneticaId) ?? 0) + delta)
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const g of geneticas) {
+        await tx.genetica.update({
+          where: { id: g.id },
+          data:  { stockGramos: stocks.get(g.id) ?? 0 },
+        })
+      }
+    })
+
+    res.json({ ok: true, actualizadas: geneticas.length })
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Error al recalcular' })
   }
 })
 

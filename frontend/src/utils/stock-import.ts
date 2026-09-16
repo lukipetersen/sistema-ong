@@ -41,14 +41,26 @@ function normalizarTipo(raw: string): string | null {
   return null
 }
 
-// ─── Parsear cantidad (convierte kg→g si la columna es "kg") ──────────────────
+// ─── Parsear cantidad con detección de unidad en el valor de la celda ────────
+// "500 KG", "1.5kg", "500g", "500G", "500" son todos válidos.
+// Prioridad: unidad en el valor > unidad en el encabezado de columna.
 
-function parsearCantidad(raw: unknown, esKg = false): number | null {
+function parsearCantidad(raw: unknown, columnaEsKg = false): number | null {
   if (raw == null || raw === '') return null
-  const s = String(raw).replace(/[^\d.,\-]/g, '').replace(',', '.')
-  const n = parseFloat(s)
+  const str = String(raw).trim()
+  const lower = str.toLowerCase().replace(/\s+/g, '')  // "500 KG" → "500kg"
+
+  // Detectar unidad en el valor
+  const valorEsKg = lower.includes('kg')
+  const valorEsG  = !valorEsKg && /\d+g$/.test(lower)  // "500g" pero no "kg"
+
+  // Extraer parte numérica
+  const num = str.replace(/[^\d.,]/g, '').replace(',', '.')
+  const n = parseFloat(num)
   if (isNaN(n) || n <= 0) return null
-  return esKg ? Math.round(n * 1000) : Math.round(n)
+
+  if (valorEsKg || (!valorEsG && columnaEsKg)) return Math.round(n * 1000)
+  return Math.round(n)
 }
 
 // ─── Parsear filas ────────────────────────────────────────────────────────────

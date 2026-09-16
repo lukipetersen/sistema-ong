@@ -366,6 +366,7 @@ export default function Stock() {
   const [syncResultado, setSyncResult] = useState<ResultadoImportStock | null>(null)
   const [modalConfig, setModalConfig] = useState(false)
   const sincronizadoRef               = useRef(false)
+  const [recalculando, setRecalc]     = useState(false)
 
   // Filtros
   const [filtroGenetica, setFiltroGenetica] = useState('')
@@ -410,13 +411,22 @@ export default function Stock() {
       const res = await autoImportarMovimientos(mapa)
       setSyncResult(res)
       setSyncEstado(res === null ? 'idle' : 'ok')
-      if (res && (res.importados > 0 || res.actualizados > 0)) {
-        await Promise.all([cargarMovimientos(), cargarResumen()])
-      }
+      // Siempre recargar después de sync (el importar ya recalcula stock en el backend)
+      await Promise.all([cargarMovimientos(), cargarResumen()])
     } catch {
       setSyncEstado('error')
     }
   }, [geneticas, cargarMovimientos, cargarResumen])
+
+  async function recalcularStock() {
+    setRecalc(true)
+    try {
+      await api.post('/movimientos-stock/recalcular')
+      await cargarResumen()
+    } finally {
+      setRecalc(false)
+    }
+  }
 
   useEffect(() => {
     let cancelado = false
@@ -564,12 +574,20 @@ export default function Stock() {
             <button
               onClick={() => sincronizar()}
               disabled={syncEstado === 'syncing'}
-              title="Sincronizar ahora"
+              title="Sincronizar con Sheets"
               className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#ede8dc] text-slate-400 hover:bg-[#f0ebe0] disabled:opacity-40 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${syncEstado === 'syncing' ? 'animate-spin' : ''}`} />
             </button>
           )}
+          <button
+            onClick={recalcularStock}
+            disabled={recalculando}
+            title="Recalcular stock desde movimientos"
+            className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#ede8dc] text-slate-400 hover:bg-[#f0ebe0] disabled:opacity-40 transition-colors"
+          >
+            <Package className={`w-4 h-4 ${recalculando ? 'animate-pulse' : ''}`} />
+          </button>
           <button
             onClick={() => setModal({ abierto: true })}
             className="flex items-center gap-2 px-4 py-2 bg-[#4a7030] text-white rounded-xl text-sm font-medium hover:bg-[#3d5e28] transition-colors"
