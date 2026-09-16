@@ -7,6 +7,7 @@ export interface Genetica {
   nombre: string
   descripcion: string | null
   observaciones: string | null
+  stockGramos: number
   creadoEn: string
   totalLotes: number
   lotesActivos: number

@@ -40,7 +40,7 @@ router.get('/', async (_req: Request, res: Response) => {
       const lotesActivos  = g.lotes.filter(l => ['PRODUCCION', 'ACTIVO'].includes(l.estado)).length
       return {
         id: g.id, nombre: g.nombre, descripcion: g.descripcion, observaciones: g.observaciones,
-        creadoEn: g.creadoEn,
+        creadoEn: g.creadoEn, stockGramos: g.stockGramos,
         totalLotes: g._count.lotes, lotesActivos, totalPlantas, plantasActivas,
       }
     })

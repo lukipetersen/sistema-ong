@@ -89,6 +89,11 @@ enum Sala {
   SALA_2
 }
 
+enum TipoMovimiento {
+  INGRESO
+  EGRESO
+}
+
 enum EstadoAsociado {
   ACTIVO
   PENDIENTE
@@ -165,8 +170,9 @@ model Usuario {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  sesiones  Sesion[]
-  auditoria Auditoria[]
+  sesiones    Sesion[]
+  auditoria   Auditoria[]
+  movimientos MovimientoStock[]
 
   @@map("usuarios")
 }
@@ -226,14 +232,33 @@ model Genetica {
   nombre        String   @unique
   descripcion   String?
   observaciones String?
+  stockGramos   Int      @default(0)
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
   lotes        Lote[]
   seguimientos SeguimientoTerapeutico[]
+  movimientos  MovimientoStock[]
 
   @@index([nombre])
   @@map("geneticas")
+}
+
+model MovimientoStock {
+  id             String         @id @default(cuid())
+  geneticaId     String
+  genetica       Genetica       @relation(fields: [geneticaId], references: [id])
+  tipo           TipoMovimiento
+  cantidadGramos Int
+  fecha          DateTime
+  observaciones  String?
+  usuarioId      String?
+  usuario        Usuario?       @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  creadoEn       DateTime       @default(now())
+
+  @@index([geneticaId])
+  @@index([fecha])
+  @@map("movimientos_stock")
 }
 
 model Lote {

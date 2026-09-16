@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Landmark, UserCheck, BarChart3,
-  Settings, LogOut, Leaf, X, ClipboardList,
+  Settings, LogOut, Leaf, X, ClipboardList, Package,
 } from 'lucide-react'
 import { useAuth, type Rol } from '@/contexts/AuthContext'
 
@@ -9,6 +9,7 @@ const nav = [
   { label: 'Inicio',     icono: LayoutDashboard, ruta: '/',          exact: true },
   { label: 'Finanzas',   icono: Landmark,         ruta: '/finanzas'  },
   { label: 'Genéticas',  icono: Leaf,             ruta: '/geneticas' },
+  { label: 'Stock',      icono: Package,          ruta: '/stock'     },
   { label: 'Asociados',  icono: UserCheck,        ruta: '/asociados' },
   { label: 'Forms',      icono: ClipboardList,    ruta: '/forms'     },
   { label: 'Reportes',   icono: BarChart3,        ruta: '/reportes'  },

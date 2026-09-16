@@ -12,6 +12,7 @@ import lotesRoutes from './routes/lotes'
 import plantasRoutes from './routes/plantas'
 import reportesRoutes from './routes/reportes'
 import configuracionRoutes from './routes/configuracion'
+import movimientosStockRoutes from './routes/movimientos-stock'
 import { manejadorErrores } from './middleware/errores'
 
 const app = express()
@@ -50,6 +51,7 @@ app.use('/api/lotes', lotesRoutes)
 app.use('/api/plantas', plantasRoutes)
 app.use('/api/reportes', reportesRoutes)
 app.use('/api/configuracion', configuracionRoutes)
+app.use('/api/movimientos-stock', movimientosStockRoutes)
 
 // ─── 404 ─────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

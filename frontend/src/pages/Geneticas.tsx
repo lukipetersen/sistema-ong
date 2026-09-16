@@ -408,14 +408,33 @@ function VistaLista({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-3 gap-2 text-sm">
                 <div className="rounded-lg bg-gray-50 p-2 text-center">
-                  <p className="text-xl font-bold text-gray-900">{g.totalLotes}</p>
+                  <p className="text-lg font-bold text-gray-900">{g.totalLotes}</p>
                   <p className="text-xs text-gray-500">Lotes</p>
                 </div>
                 <div className="rounded-lg bg-green-50 p-2 text-center">
-                  <p className="text-xl font-bold text-green-700">{g.plantasActivas}</p>
-                  <p className="text-xs text-green-600">Plantas activas</p>
+                  <p className="text-lg font-bold text-green-700">{g.plantasActivas}</p>
+                  <p className="text-xs text-green-600">Plantas</p>
+                </div>
+                <div className={`rounded-lg p-2 text-center ${
+                  (g.stockGramos ?? 0) < 0 ? 'bg-red-50' :
+                  (g.stockGramos ?? 0) === 0 ? 'bg-gray-50' : 'bg-amber-50'
+                }`}>
+                  <p className={`text-lg font-bold leading-tight ${
+                    (g.stockGramos ?? 0) < 0 ? 'text-red-600' :
+                    (g.stockGramos ?? 0) === 0 ? 'text-gray-400' : 'text-amber-700'
+                  }`}>
+                    {(g.stockGramos ?? 0) >= 1000
+                      ? `${((g.stockGramos ?? 0) / 1000).toFixed(1).replace(/\.0$/, '')}k`
+                      : `${g.stockGramos ?? 0}`}
+                  </p>
+                  <p className={`text-xs ${
+                    (g.stockGramos ?? 0) < 0 ? 'text-red-400' :
+                    (g.stockGramos ?? 0) === 0 ? 'text-gray-400' : 'text-amber-600'
+                  }`}>
+                    {(g.stockGramos ?? 0) >= 1000 ? 'kg stock' : 'g stock'}
+                  </p>
                 </div>
               </div>
 
