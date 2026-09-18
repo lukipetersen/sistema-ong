@@ -875,8 +875,8 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
     } finally { setEliminando(false) }
   }
 
-  const lotesActivos = lotes.filter(l => ['PRODUCCION', 'ACTIVO'].includes(l.estado)).length
-  const totalPlantas = lotes.reduce((s, l) => s + l.totalPlantas, 0)
+  const lotesActivos = lotes.filter(l => ['PRODUCCION', 'ACTIVO'].includes(l.estado ?? '')).length
+  const totalPlantas = lotes.reduce((s, l) => s + (l.totalPlantas ?? 0), 0)
 
   return (
     <div>
@@ -965,9 +965,9 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
               </div>
 
               {/* Chips de genéticas */}
-              {l.loteGeneticas.length > 0 ? (
+              {(l.loteGeneticas ?? []).length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-1">
-                  {l.loteGeneticas.map(lg => {
+                  {(l.loteGeneticas ?? []).map(lg => {
                     const plantasDeGen = l.plantas?.filter((p: { geneticaId: string }) => p.geneticaId === lg.geneticaId)?.length ?? 0
                     return (
                       <span key={lg.id} className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
