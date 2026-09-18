@@ -9,10 +9,11 @@ router.use(autenticar)
 // ─── GET /api/movimientos-stock ──────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, tipo, mes, page = '1', limit = '50' } = req.query as Record<string, string>
+    const { geneticaId, loteId, tipo, mes, page = '1', limit = '50' } = req.query as Record<string, string>
 
     const where: Record<string, unknown> = {}
     if (geneticaId) where.geneticaId = geneticaId
+    if (loteId)     where.loteId     = loteId
     if (tipo && ['INGRESO', 'EGRESO'].includes(tipo)) where.tipo = tipo
     if (mes) {
       const [anio, m] = mes.split('-').map(Number)
@@ -28,6 +29,7 @@ router.get('/', async (req: Request, res: Response) => {
         take: Number(limit),
         include: {
           genetica: { select: { id: true, nombre: true } },
+          lote:     { select: { id: true, codigo: true } },
           usuario:  { select: { id: true, nombre: true, apellido: true } },
         },
       }),
@@ -48,9 +50,26 @@ router.get('/resumen', async (_req: Request, res: Response) => {
       select: {
         id: true, nombre: true, stockGramos: true,
         movimientos: { orderBy: { fecha: 'desc' }, take: 1, select: { fecha: true, tipo: true } },
+        loteGeneticas: {
+          select: {
+            stockGramos: true,
+            lote: { select: { id: true, codigo: true } },
+          },
+        },
       },
     })
-    res.json(geneticas.map(g => ({ id: g.id, nombre: g.nombre, stockGramos: g.stockGramos, ultimoMov: g.movimientos[0] ?? null })))
+
+    res.json(geneticas.map(g => ({
+      id: g.id,
+      nombre: g.nombre,
+      stockGramos: g.stockGramos,
+      ultimoMov: g.movimientos[0] ?? null,
+      lotes: g.loteGeneticas.map(lg => ({
+        loteId:     lg.lote.id,
+        loteCodigo: lg.lote.codigo,
+        stockGramos: lg.stockGramos,
+      })),
+    })))
   } catch {
     res.status(500).json({ error: 'Error al obtener resumen' })
   }
@@ -60,7 +79,7 @@ router.get('/resumen', async (_req: Request, res: Response) => {
 // Crea movimiento + actualiza stock en transacción. Permite stock negativo (avisa).
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, tipo, cantidadGramos, fecha, observaciones } = req.body
+    const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones } = req.body
 
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
@@ -72,13 +91,36 @@ router.post('/', async (req: Request, res: Response) => {
     const usuarioId = req.usuarioId ?? null
 
     const [movimiento, stockActual] = await prisma.$transaction(async (tx) => {
+      // Update genetica stock
       const genetica = await tx.genetica.update({
         where: { id: geneticaId },
         data:  { stockGramos: { increment: delta } },
       })
+
+      // Update loteGenetica stock if loteId provided
+      if (loteId) {
+        await tx.loteGenetica.upsert({
+          where: { loteId_geneticaId: { loteId, geneticaId } },
+          update: { stockGramos: { increment: delta } },
+          create: { loteId, geneticaId, stockGramos: delta < 0 ? delta : delta },
+        })
+      }
+
       const mov = await tx.movimientoStock.create({
-        data: { geneticaId, tipo: tipo as TipoMovimiento, cantidadGramos: gramos, fecha: new Date(fecha), observaciones: observaciones || null, usuarioId },
-        include: { genetica: { select: { id: true, nombre: true, stockGramos: true } }, usuario: { select: { id: true, nombre: true, apellido: true } } },
+        data: {
+          geneticaId,
+          loteId: loteId || null,
+          tipo: tipo as TipoMovimiento,
+          cantidadGramos: gramos,
+          fecha: new Date(fecha),
+          observaciones: observaciones || null,
+          usuarioId,
+        },
+        include: {
+          genetica: { select: { id: true, nombre: true, stockGramos: true } },
+          lote:     { select: { id: true, codigo: true } },
+          usuario:  { select: { id: true, nombre: true, apellido: true } },
+        },
       })
       return [mov, genetica.stockGramos]
     })
@@ -91,15 +133,14 @@ router.post('/', async (req: Request, res: Response) => {
 
 // ─── POST /api/movimientos-stock/importar ────────────────────────────────────
 // Importación desde Sheets o histórica. Usa sheetsId como clave estable.
-// Si sheetsId coincide → upsert con recálculo de delta de stock.
-// Si no tiene sheetsId → fallback por fecha+geneticaId+tipo+cantidadGramos.
+// Al final recalcula stockGramos desde cero por cada genética afectada.
 router.post('/importar', async (req: Request, res: Response) => {
   try {
     const { movimientos: raw } = req.body as { movimientos: unknown[] }
     if (!Array.isArray(raw) || raw.length === 0) return res.status(400).json({ error: 'Se requiere un array de movimientos' })
 
     type FilaMov = {
-      sheetsId: string | null; geneticaId: string; tipo: TipoMovimiento
+      sheetsId: string | null; geneticaId: string; loteId: string | null; tipo: TipoMovimiento
       cantidadGramos: number; fecha: Date; observaciones: string | null
     }
     const datos: FilaMov[] = []
@@ -113,12 +154,13 @@ router.post('/importar', async (req: Request, res: Response) => {
       if (!m.cantidadGramos || Number(m.cantidadGramos) <= 0) { errores.push({ fila, error: 'Cantidad inválida' }); continue }
       if (!m.fecha)                                           { errores.push({ fila, error: 'Falta fecha' }); continue }
       datos.push({
-        sheetsId:      (m.sheetsId && String(m.sheetsId).trim()) ? String(m.sheetsId).trim() : null,
-        geneticaId:    String(m.geneticaId),
-        tipo:          String(m.tipo) as TipoMovimiento,
+        sheetsId:       (m.sheetsId && String(m.sheetsId).trim()) ? String(m.sheetsId).trim() : null,
+        geneticaId:     String(m.geneticaId),
+        loteId:         m.loteId ? String(m.loteId) : null,
+        tipo:           String(m.tipo) as TipoMovimiento,
         cantidadGramos: Math.round(Number(m.cantidadGramos)),
-        fecha:         new Date(String(m.fecha)),
-        observaciones: m.observaciones ? String(m.observaciones) : null,
+        fecha:          new Date(String(m.fecha)),
+        observaciones:  m.observaciones ? String(m.observaciones) : null,
       })
     }
 
@@ -127,17 +169,16 @@ router.post('/importar', async (req: Request, res: Response) => {
     const conId = datos.filter(d => d.sheetsId !== null)
     const sinId = datos.filter(d => d.sheetsId === null)
 
-    let cantInsertados  = 0
+    let cantInsertados   = 0
     let cantActualizados = 0
 
-    // Mapa para acumular deltas de stock por genética (aplicar una sola vez al final)
-    const stockDeltas = new Map<string, number>()
-    const sumarDelta  = (gId: string, d: number) => stockDeltas.set(gId, (stockDeltas.get(gId) ?? 0) + d)
+    // Genéticas afectadas (para recalcular stock al final)
+    const geneticasAfectadas = new Set<string>(datos.map(d => d.geneticaId))
 
     // Existentes sin sheetsId para fallback de migración
     const existentesSinId = await prisma.movimientoStock.findMany({
       where:  { sheetsId: null },
-      select: { id: true, sheetsId: true, geneticaId: true, tipo: true, cantidadGramos: true, fecha: true, observaciones: true },
+      select: { id: true, geneticaId: true, tipo: true, cantidadGramos: true, fecha: true, observaciones: true },
     })
     const claveFallback = (r: typeof existentesSinId[0]) =>
       `${new Date(r.fecha).toISOString().slice(0, 10)}|${r.geneticaId}|${r.tipo}|${r.cantidadGramos}`
@@ -147,41 +188,32 @@ router.post('/importar', async (req: Request, res: Response) => {
 
       // ── Filas CON sheetsId ────────────────────────────────────────────────
       for (const d of conId) {
-        // 1. Buscar por sheetsId
         const porId = await tx.movimientoStock.findUnique({ where: { sheetsId: d.sheetsId! } })
 
         if (porId) {
-          // Verificar si hay cambios reales
           const sinCambios =
-            porId.geneticaId    === d.geneticaId &&
-            porId.tipo          === d.tipo &&
+            porId.geneticaId     === d.geneticaId &&
+            porId.tipo           === d.tipo &&
             porId.cantidadGramos === d.cantidadGramos &&
             new Date(porId.fecha).toISOString().slice(0, 10) === d.fecha.toISOString().slice(0, 10) &&
             (porId.observaciones ?? null) === (d.observaciones ?? null)
 
           if (!sinCambios) {
-            // Calcular ajuste neto de stock
-            const oldDelta = porId.tipo === 'INGRESO' ? porId.cantidadGramos : -porId.cantidadGramos
-            const newDelta = d.tipo    === 'INGRESO' ? d.cantidadGramos    : -d.cantidadGramos
-
-            if (porId.geneticaId !== d.geneticaId) {
-              // La genética cambió: revertir en la vieja, aplicar en la nueva
-              sumarDelta(porId.geneticaId, -oldDelta)
-              sumarDelta(d.geneticaId,      newDelta)
-            } else {
-              sumarDelta(d.geneticaId, newDelta - oldDelta)
-            }
-
+            if (porId.geneticaId !== d.geneticaId) geneticasAfectadas.add(porId.geneticaId)
             await tx.movimientoStock.update({
               where: { sheetsId: d.sheetsId! },
-              data:  { geneticaId: d.geneticaId, tipo: d.tipo, cantidadGramos: d.cantidadGramos, fecha: d.fecha, observaciones: d.observaciones },
+              data:  {
+                geneticaId: d.geneticaId, loteId: d.loteId,
+                tipo: d.tipo, cantidadGramos: d.cantidadGramos,
+                fecha: d.fecha, observaciones: d.observaciones,
+              },
             })
             cantActualizados++
           }
           continue
         }
 
-        // 2. Migración: buscar por clave entre registros sin sheetsId
+        // Migración: buscar por clave entre registros sin sheetsId
         const k = `${d.fecha.toISOString().slice(0, 10)}|${d.geneticaId}|${d.tipo}|${d.cantidadGramos}`
         const porClave = mapaFallback.get(k)
         if (porClave) {
@@ -194,27 +226,30 @@ router.post('/importar', async (req: Request, res: Response) => {
           continue
         }
 
-        // 3. Insertar nuevo
-        await tx.movimientoStock.create({ data: d })
-        sumarDelta(d.geneticaId, d.tipo === 'INGRESO' ? d.cantidadGramos : -d.cantidadGramos)
+        await tx.movimientoStock.create({ data: { ...d } })
         cantInsertados++
       }
 
-      // ── Filas SIN sheetsId: fallback por clave ────────────────────────────
+      // ── Filas SIN sheetsId ────────────────────────────────────────────────
       for (const d of sinId) {
         const k = `${d.fecha.toISOString().slice(0, 10)}|${d.geneticaId}|${d.tipo}|${d.cantidadGramos}`
-        if (mapaFallback.has(k)) continue  // ya existe, omitir
+        if (mapaFallback.has(k)) continue
 
-        await tx.movimientoStock.create({ data: d })
-        sumarDelta(d.geneticaId, d.tipo === 'INGRESO' ? d.cantidadGramos : -d.cantidadGramos)
+        await tx.movimientoStock.create({ data: { ...d } })
         cantInsertados++
       }
 
-      // ── Aplicar todos los deltas de stock de una vez ──────────────────────
-      for (const [geneticaId, delta] of stockDeltas) {
-        if (delta !== 0) {
-          await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: { increment: delta } } })
-        }
+      // ── Recalcular stockGramos exacto por cada genética afectada ─────────
+      for (const geneticaId of geneticasAfectadas) {
+        const movs = await tx.movimientoStock.findMany({
+          where:  { geneticaId },
+          select: { tipo: true, cantidadGramos: true },
+        })
+        const stock = movs.reduce(
+          (sum, m) => sum + (m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos),
+          0
+        )
+        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: stock } })
       }
     })
 
@@ -222,6 +257,58 @@ router.post('/importar', async (req: Request, res: Response) => {
     res.status(201).json({ importados: cantInsertados, actualizados: cantActualizados, omitidos, errores })
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al importar' })
+  }
+})
+
+// ─── POST /api/movimientos-stock/recalcular ───────────────────────────────────
+// Recalcula stockGramos de TODAS las genéticas desde sus movimientos.
+// También recalcula LoteGenetica.stockGramos.
+router.post('/recalcular', async (_req: Request, res: Response) => {
+  try {
+    const [movimientos, geneticas, loteGeneticas] = await Promise.all([
+      prisma.movimientoStock.findMany({ select: { geneticaId: true, loteId: true, tipo: true, cantidadGramos: true } }),
+      prisma.genetica.findMany({ select: { id: true } }),
+      prisma.loteGenetica.findMany({ select: { loteId: true, geneticaId: true } }),
+    ])
+
+    // Calculate genetica stocks
+    const stocksGenetica = new Map<string, number>()
+    for (const m of movimientos) {
+      const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      stocksGenetica.set(m.geneticaId, (stocksGenetica.get(m.geneticaId) ?? 0) + delta)
+    }
+
+    // Calculate lote-genetica stocks
+    const stocksLoteGenetica = new Map<string, number>()
+    for (const m of movimientos) {
+      if (!m.loteId) continue
+      const key = `${m.loteId}|${m.geneticaId}`
+      const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      stocksLoteGenetica.set(key, (stocksLoteGenetica.get(key) ?? 0) + delta)
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Update genetica stocks
+      for (const g of geneticas) {
+        await tx.genetica.update({
+          where: { id: g.id },
+          data:  { stockGramos: stocksGenetica.get(g.id) ?? 0 },
+        })
+      }
+
+      // Update lote-genetica stocks
+      for (const lg of loteGeneticas) {
+        const key = `${lg.loteId}|${lg.geneticaId}`
+        await tx.loteGenetica.update({
+          where: { loteId_geneticaId: { loteId: lg.loteId, geneticaId: lg.geneticaId } },
+          data:  { stockGramos: stocksLoteGenetica.get(key) ?? 0 },
+        })
+      }
+    })
+
+    res.json({ ok: true, actualizadas: geneticas.length, lotesActualizados: loteGeneticas.length })
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Error al recalcular' })
   }
 })
 
@@ -233,6 +320,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
       const mov = await tx.movimientoStock.delete({ where: { id: req.params.id } })
       const delta = mov.tipo === 'INGRESO' ? -mov.cantidadGramos : mov.cantidadGramos
       const g = await tx.genetica.update({ where: { id: mov.geneticaId }, data: { stockGramos: { increment: delta } } })
+
+      // Revert loteGenetica stock if movement had loteId
+      if (mov.loteId) {
+        await tx.loteGenetica.upsert({
+          where: { loteId_geneticaId: { loteId: mov.loteId, geneticaId: mov.geneticaId } },
+          update: { stockGramos: { increment: delta } },
+          create: { loteId: mov.loteId, geneticaId: mov.geneticaId, stockGramos: delta },
+        })
+      }
+
       return g.stockGramos
     })
     res.json({ ok: true, stockNegativo: stockActual < 0, stockActual })

@@ -23,25 +23,26 @@ router.get('/', async (_req: Request, res: Response) => {
     const geneticas = await prisma.genetica.findMany({
       orderBy: { nombre: 'asc' },
       include: {
-        _count: { select: { lotes: true } },
-        lotes: {
+        _count: { select: { loteGeneticas: true } },
+        loteGeneticas: {
           select: {
-            estado: true,
-            _count: { select: { plantas: true } },
-            plantas: { select: { estado: true } },
+            stockGramos: true,
+            lote: { select: { estado: true } },
           },
         },
+        plantas: { select: { estado: true } },
       },
     })
 
     const data = geneticas.map(g => {
-      const totalPlantas  = g.lotes.flatMap(l => l.plantas).length
-      const plantasActivas = g.lotes.flatMap(l => l.plantas).filter(p => p.estado === 'ACTIVA').length
-      const lotesActivos  = g.lotes.filter(l => ['PRODUCCION', 'ACTIVO'].includes(l.estado)).length
+      const totalLotes    = g._count.loteGeneticas
+      const lotesActivos  = g.loteGeneticas.filter(lg => ['PRODUCCION', 'ACTIVO'].includes(lg.lote.estado)).length
+      const totalPlantas  = g.plantas.length
+      const plantasActivas = g.plantas.filter(p => p.estado === 'ACTIVA').length
       return {
         id: g.id, nombre: g.nombre, descripcion: g.descripcion, observaciones: g.observaciones,
         creadoEn: g.creadoEn, stockGramos: g.stockGramos,
-        totalLotes: g._count.lotes, lotesActivos, totalPlantas, plantasActivas,
+        totalLotes, lotesActivos, totalPlantas, plantasActivas,
       }
     })
 
@@ -68,9 +69,12 @@ router.get('/buscar', async (req: Request, res: Response) => {
         where: { OR: [
           { codigo: { contains: term, mode: 'insensitive' } },
           { observaciones: { contains: term, mode: 'insensitive' } },
-          { genetica: { nombre: { contains: term, mode: 'insensitive' } } },
+          { loteGeneticas: { some: { genetica: { nombre: { contains: term, mode: 'insensitive' } } } } },
         ]},
-        select: { id: true, codigo: true, estado: true, sala: true, genetica: { select: { nombre: true } } },
+        select: {
+          id: true, codigo: true, estado: true, sala: true,
+          loteGeneticas: { select: { genetica: { select: { nombre: true } } }, take: 1 },
+        },
         take: 10,
       }),
       prisma.planta.findMany({
@@ -81,45 +85,63 @@ router.get('/buscar', async (req: Request, res: Response) => {
         ]},
         select: {
           id: true, codigo: true, alias: true, estado: true,
-          lote: { select: { codigo: true, genetica: { select: { nombre: true } } } },
+          lote:    { select: { codigo: true } },
+          genetica: { select: { nombre: true } },
         },
         take: 20,
       }),
     ])
 
-    res.json({ geneticas, lotes, plantas })
+    // Shape lotes to include first genetic name for compatibility
+    const lotesConGenetica = lotes.map(l => ({
+      id: l.id, codigo: l.codigo, estado: l.estado, sala: l.sala,
+      genetica: l.loteGeneticas[0]?.genetica ?? null,
+    }))
+
+    res.json({ geneticas, lotes: lotesConGenetica, plantas })
   } catch (e) {
     res.status(500).json({ error: 'Error en búsqueda' })
   }
 })
 
-// GET /api/geneticas/:id — detalle con lotes y conteo de plantas
+// GET /api/geneticas/:id — detalle con loteGeneticas
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const genetica = await prisma.genetica.findUnique({
       where: { id: req.params.id },
       include: {
-        lotes: {
+        loteGeneticas: {
           orderBy: { creadoEn: 'desc' },
           include: {
-            _count: { select: { plantas: true } },
-            plantas: { select: { estado: true } },
+            lote: {
+              select: {
+                id: true, codigo: true, sala: true, estado: true,
+                fechaInicio: true, fechaFinalizacion: true,
+                observaciones: true, creadoEn: true,
+                _count: { select: { plantas: true } },
+              },
+            },
           },
         },
+        plantas: { select: { estado: true } },
       },
     })
     if (!genetica) return res.status(404).json({ error: 'Genética no encontrada' })
 
-    const lotes = genetica.lotes.map(l => ({
-      id: l.id, codigo: l.codigo, sala: l.sala, estado: l.estado,
-      fechaInicio: l.fechaInicio, fechaFinalizacion: l.fechaFinalizacion,
-      observaciones: l.observaciones, creadoEn: l.creadoEn,
-      totalPlantas: l._count.plantas,
-      plantasActivas: l.plantas.filter(p => p.estado === 'ACTIVA').length,
-      plantasSeleccionadas: l.plantas.filter(p => p.estado === 'SELECCIONADA').length,
-    }))
+    const loteGeneticas = genetica.loteGeneticas.map(lg => {
+      const lote = lg.lote
+      return {
+        id: lg.id, stockGramos: lg.stockGramos, creadoEn: lg.creadoEn,
+        lote: {
+          id: lote.id, codigo: lote.codigo, sala: lote.sala, estado: lote.estado,
+          fechaInicio: lote.fechaInicio, fechaFinalizacion: lote.fechaFinalizacion,
+          observaciones: lote.observaciones, creadoEn: lote.creadoEn,
+          totalPlantas: lote._count.plantas,
+        },
+      }
+    })
 
-    res.json({ ...genetica, lotes })
+    res.json({ ...genetica, loteGeneticas, lotes: loteGeneticas.map(lg => lg.lote) })
   } catch (e) {
     res.status(500).json({ error: 'Error al obtener genética' })
   }
@@ -169,11 +191,15 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// DELETE /api/geneticas/:id — solo si no tiene lotes
+// DELETE /api/geneticas/:id — solo si no tiene loteGeneticas ni plantas
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const lotes = await prisma.lote.count({ where: { geneticaId: req.params.id } })
-    if (lotes > 0) return res.status(409).json({ error: 'No se puede eliminar una genética con lotes asociados' })
+    const [loteGeneticas, plantas] = await Promise.all([
+      prisma.loteGenetica.count({ where: { geneticaId: req.params.id } }),
+      prisma.planta.count({ where: { geneticaId: req.params.id } }),
+    ])
+    if (loteGeneticas > 0) return res.status(409).json({ error: 'No se puede eliminar una genética con lotes asociados' })
+    if (plantas > 0)       return res.status(409).json({ error: 'No se puede eliminar una genética con plantas asociadas' })
 
     await prisma.genetica.delete({ where: { id: req.params.id } })
     res.json({ ok: true })

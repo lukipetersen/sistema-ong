@@ -15,6 +15,7 @@ enum Rol {
   COORDINADOR
   OPERADOR
   SOLO_LECTURA
+  SOLO_STOCK
 }
 
 enum Sexo {
@@ -225,7 +226,7 @@ model Ingreso {
   @@map("ingresos")
 }
 
-// ─── Genéticas ─────────────────────────────────────────────────────────────
+// ─── Trazabilidad ──────────────────────────────────────────────────────────
 
 model Genetica {
   id            String   @id @default(cuid())
@@ -236,12 +237,28 @@ model Genetica {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  lotes        Lote[]
-  seguimientos SeguimientoTerapeutico[]
-  movimientos  MovimientoStock[]
+  loteGeneticas LoteGenetica[]
+  plantas       Planta[]
+  seguimientos  SeguimientoTerapeutico[]
+  movimientos   MovimientoStock[]
 
   @@index([nombre])
   @@map("geneticas")
+}
+
+model LoteGenetica {
+  id          String   @id @default(cuid())
+  loteId      String
+  lote        Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  geneticaId  String
+  genetica    Genetica @relation(fields: [geneticaId], references: [id])
+  stockGramos Int      @default(0)
+  creadoEn    DateTime @default(now())
+
+  @@unique([loteId, geneticaId])
+  @@index([loteId])
+  @@index([geneticaId])
+  @@map("lote_geneticas")
 }
 
 model MovimientoStock {
@@ -249,6 +266,8 @@ model MovimientoStock {
   sheetsId       String?        @unique
   geneticaId     String
   genetica       Genetica       @relation(fields: [geneticaId], references: [id])
+  loteId         String?
+  lote           Lote?          @relation(fields: [loteId], references: [id], onDelete: SetNull)
   tipo           TipoMovimiento
   cantidadGramos Int
   fecha          DateTime
@@ -258,6 +277,7 @@ model MovimientoStock {
   creadoEn       DateTime       @default(now())
 
   @@index([geneticaId])
+  @@index([loteId])
   @@index([fecha])
   @@map("movimientos_stock")
 }
@@ -265,8 +285,6 @@ model MovimientoStock {
 model Lote {
   id                String     @id @default(cuid())
   codigo            String     @unique
-  geneticaId        String
-  genetica          Genetica   @relation(fields: [geneticaId], references: [id])
   sala              Sala
   fechaInicio       DateTime
   fechaFinalizacion DateTime?
@@ -275,11 +293,12 @@ model Lote {
   creadoEn          DateTime   @default(now())
   actualizadoEn     DateTime   @updatedAt
 
-  plantas      Planta[]
-  historial    HistorialLote[]
-  seguimientos SeguimientoTerapeutico[]
+  plantas       Planta[]
+  historial     HistorialLote[]
+  seguimientos  SeguimientoTerapeutico[]
+  loteGeneticas LoteGenetica[]
+  movimientos   MovimientoStock[]
 
-  @@index([geneticaId])
   @@index([estado])
   @@map("lotes")
 }
@@ -289,6 +308,8 @@ model Planta {
   codigo        String       @unique
   loteId        String
   lote          Lote         @relation(fields: [loteId], references: [id])
+  geneticaId    String
+  genetica      Genetica     @relation(fields: [geneticaId], references: [id])
   alias         String?
   estado        EstadoPlanta @default(ACTIVA)
   observaciones String?
@@ -298,6 +319,7 @@ model Planta {
   seguimientos SeguimientoTerapeutico[]
 
   @@index([loteId])
+  @@index([geneticaId])
   @@index([estado])
   @@index([alias])
   @@map("plantas")

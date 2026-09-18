@@ -8,7 +8,7 @@ import { useAuth, type Rol } from '@/contexts/AuthContext'
 const nav = [
   { label: 'Inicio',     icono: LayoutDashboard, ruta: '/',          exact: true },
   { label: 'Finanzas',   icono: Landmark,         ruta: '/finanzas'  },
-  { label: 'Genéticas',  icono: Leaf,             ruta: '/geneticas' },
+  { label: 'Trazabilidad', icono: Leaf,             ruta: '/trazabilidad' },
   { label: 'Stock',      icono: Package,          ruta: '/stock'     },
   { label: 'Asociados',  icono: UserCheck,        ruta: '/asociados' },
   { label: 'Forms',      icono: ClipboardList,    ruta: '/forms'     },

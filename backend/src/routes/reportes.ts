@@ -216,15 +216,16 @@ router.get('/productivo', async (_req: Request, res: Response) => {
       prisma.genetica.findMany({
         orderBy: { nombre: 'asc' },
         include: {
-          _count: { select: { lotes: true } },
-          lotes: { select: { sala: true, estado: true, plantas: { select: { estado: true } } } },
+          _count: { select: { loteGeneticas: true } },
+          loteGeneticas: { select: { lote: { select: { sala: true, estado: true } } } },
+          plantas: { select: { estado: true } },
         },
       }),
       prisma.lote.findMany({
         select: {
           id: true, codigo: true, sala: true, estado: true,
           fechaInicio: true, fechaFinalizacion: true, creadoEn: true,
-          genetica: { select: { nombre: true } },
+          loteGeneticas: { select: { genetica: { select: { nombre: true } } }, take: 1 },
           _count: { select: { plantas: true } },
         },
         orderBy: { creadoEn: 'desc' },
@@ -240,19 +241,25 @@ router.get('/productivo', async (_req: Request, res: Response) => {
     const porEstadoPlanta = Object.fromEntries(estadosPlanta.map(e => [e, plantasAll.filter(p => p.estado === e).length]))
 
     const resumenGeneticas = geneticas.map(g => {
-      const todasPlant = g.lotes.flatMap(l => l.plantas)
+      const lotesDeGen = g.loteGeneticas.map(lg => lg.lote)
       return {
         id: g.id, nombre: g.nombre,
-        totalLotes: g._count.lotes,
-        lotesActivos: g.lotes.filter(l => ['PRODUCCION','ACTIVO'].includes(l.estado)).length,
-        totalPlantas: todasPlant.length,
-        plantasActivas: todasPlant.filter(p => p.estado === 'ACTIVA').length,
-        lotesSala1: g.lotes.filter(l => l.sala === 'SALA_1').length,
-        lotesSala2: g.lotes.filter(l => l.sala === 'SALA_2').length,
+        totalLotes: g._count.loteGeneticas,
+        lotesActivos: lotesDeGen.filter(l => ['PRODUCCION','ACTIVO'].includes(l.estado)).length,
+        totalPlantas: g.plantas.length,
+        plantasActivas: g.plantas.filter(p => p.estado === 'ACTIVA').length,
+        lotesSala1: lotesDeGen.filter(l => l.sala === 'SALA_1').length,
+        lotesSala2: lotesDeGen.filter(l => l.sala === 'SALA_2').length,
       }
     })
 
-    res.json({ geneticas: resumenGeneticas, lotes, porEstadoLote, porSalaLote, porEstadoPlanta, totalPlantas: plantasAll.length })
+    // Shape lotes for frontend (add legacy genetica field)
+    const lotesConGenetica = lotes.map(l => ({
+      ...l,
+      genetica: l.loteGeneticas[0]?.genetica ?? null,
+    }))
+
+    res.json({ geneticas: resumenGeneticas, lotes: lotesConGenetica, porEstadoLote, porSalaLote, porEstadoPlanta, totalPlantas: plantasAll.length })
   } catch (e) {
     console.error('[reportes/productivo]', e)
     res.status(500).json({ error: 'Error al obtener reporte productivo' })

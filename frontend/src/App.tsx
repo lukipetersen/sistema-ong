@@ -9,7 +9,7 @@ import ListaAsociados from '@/pages/asociados/ListaAsociados'
 import FichaAsociado from '@/pages/asociados/FichaAsociado'
 import FormularioAsociado from '@/pages/asociados/FormularioAsociado'
 import Proximamente from '@/pages/Proximamente'
-import Geneticas from '@/pages/Geneticas'
+import Trazabilidad from '@/pages/Trazabilidad'
 import Reportes from '@/pages/Reportes'
 import Forms from '@/pages/Forms'
 import Stock from '@/pages/Stock'
@@ -48,7 +48,7 @@ function Rutas() {
         <Route path="asociados/:id"                element={<FichaAsociado />} />
         <Route path="asociados/:id/editar"         element={<FormularioAsociado modo="editar" />} />
         <Route path="finanzas"      element={<Finanzas />} />
-        <Route path="geneticas"     element={<Geneticas />} />
+        <Route path="trazabilidad"  element={<Trazabilidad />} />
         <Route path="stock"         element={<Stock />} />
         <Route path="socios"        element={<Proximamente />} />
         <Route path="reportes"      element={<Reportes />} />

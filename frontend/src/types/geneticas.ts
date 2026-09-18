@@ -15,8 +15,19 @@ export interface Genetica {
   plantasActivas: number
 }
 
+export interface LoteGenetica {
+  id: string
+  geneticaId: string
+  genetica: { id: string; nombre: string; descripcion?: string | null }
+  stockGramos: number
+  creadoEn: string
+  totalPlantas?: number
+  plantasActivas?: number
+}
+
 export interface GeneticaDetalle extends Omit<Genetica, 'totalLotes' | 'lotesActivos' | 'totalPlantas' | 'plantasActivas'> {
   actualizadoEn: string
+  loteGeneticas: { id: string; stockGramos: number; lote: LoteResumen }[]
   lotes: LoteResumen[]
 }
 
@@ -30,14 +41,17 @@ export interface LoteResumen {
   observaciones: string | null
   creadoEn: string
   totalPlantas: number
-  plantasActivas: number
-  plantasSeleccionadas: number
+  plantasActivas?: number
+  plantasSeleccionadas?: number
 }
 
 export interface Lote extends LoteResumen {
-  geneticaId: string
   actualizadoEn: string
-  genetica: { id: string; nombre: string }
+  loteGeneticas: LoteGenetica[]
+  genetica: { id: string; nombre: string } | null  // first genetic for compat
+  totalPlantas: number
+  plantasActivas: number
+  plantasSeleccionadas: number
 }
 
 export interface LoteDetalle extends Lote {
@@ -49,6 +63,8 @@ export interface Planta {
   id: string
   codigo: string
   loteId: string
+  geneticaId: string
+  genetica: { id: string; nombre: string }
   alias: string | null
   estado: EstadoPlanta
   observaciones: string | null

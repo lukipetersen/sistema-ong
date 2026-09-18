@@ -14,6 +14,7 @@ interface Genetica {
   nombre: string
   stockGramos: number
   ultimoMov: { fecha: string; tipo: 'INGRESO' | 'EGRESO' } | null
+  lotes?: { loteId: string; loteCodigo: string; stockGramos: number }[]
 }
 
 interface Movimiento {
@@ -29,6 +30,11 @@ interface Movimiento {
 interface GeneticaOption {
   id: string
   nombre: string
+}
+
+interface LoteOption {
+  id: string
+  codigo: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -146,6 +152,9 @@ function ModalMovimiento({
   onCerrar: () => void
 }) {
   const [geneticaId, setGeneticaId]   = useState(geneticaPreseleccionada ?? '')
+  const [loteId, setLoteId]           = useState('')
+  const [lotesDisponibles, setLotes]  = useState<LoteOption[]>([])
+  const [cargandoLotes, setCargLotes] = useState(false)
   const [tipo, setTipo]               = useState<'INGRESO' | 'EGRESO'>('INGRESO')
   const [cantidad, setCantidad]       = useState('')
   const [unidad, setUnidad]           = useState<'g' | 'kg'>('g')
@@ -154,6 +163,25 @@ function ModalMovimiento({
   const [guardando, setGuardando]     = useState(false)
   const [error, setError]             = useState('')
   const [alertaNegativo, setAlerta]   = useState<{ stockActual: number; genetica: string } | null>(null)
+
+  // Cargar lotes cuando cambia la genética seleccionada
+  useEffect(() => {
+    if (!geneticaId) { setLotes([]); setLoteId(''); return }
+    setCargLotes(true)
+    const token = sessionStorage.getItem('token')
+    const headers = { Authorization: `Bearer ${token}` }
+    fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/lotes?geneticaId=${geneticaId}&limit=100`, { headers })
+      .then(r => r.json())
+      .then(d => {
+        const lista = Array.isArray(d.lotes)
+          ? d.lotes.map((l: { id: string; codigo: string }) => ({ id: l.id, codigo: l.codigo }))
+          : []
+        setLotes(lista)
+        setLoteId('')
+      })
+      .catch(() => setLotes([]))
+      .finally(() => setCargLotes(false))
+  }, [geneticaId])
 
   async function guardar() {
     if (!geneticaId || !cantidad || !fecha) { setError('Completá los campos obligatorios'); return }
@@ -164,7 +192,10 @@ function ModalMovimiento({
     setGuardando(true)
     setError('')
     try {
-      const { data } = await api.post('/movimientos-stock', { geneticaId, tipo, cantidadGramos, fecha, observaciones: observaciones || null })
+      const { data } = await api.post('/movimientos-stock', {
+        geneticaId, loteId: loteId || null,
+        tipo, cantidadGramos, fecha, observaciones: observaciones || null,
+      })
       if (data.stockNegativo) {
         const g = geneticas.find(g => g.id === geneticaId)
         setAlerta({ stockActual: data.stockActual, genetica: g?.nombre ?? '' })
@@ -258,6 +289,33 @@ function ModalMovimiento({
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
           </div>
+
+          {/* Lote (opcional) */}
+          {geneticaId && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Lote <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={loteId}
+                  onChange={e => setLoteId(e.target.value)}
+                  disabled={cargandoLotes}
+                  className="campo w-full appearance-none pr-8 disabled:opacity-60"
+                >
+                  <option value="">Sin lote específico</option>
+                  {lotesDisponibles.map(l => (
+                    <option key={l.id} value={l.id}>{l.codigo}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+              {cargandoLotes && <p className="text-xs text-slate-400 mt-1">Cargando lotes...</p>}
+              {!cargandoLotes && lotesDisponibles.length === 0 && (
+                <p className="text-xs text-slate-400 mt-1">Esta genética no tiene lotes asignados</p>
+              )}
+            </div>
+          )}
 
           {/* Cantidad + unidad */}
           <div>
@@ -733,6 +791,18 @@ export default function Stock() {
                 </p>
               ) : (
                 <p className="text-xs text-slate-400">Sin movimientos registrados</p>
+              )}
+              {g.lotes && g.lotes.length > 0 && (
+                <div className="mt-2 space-y-0.5">
+                  {g.lotes.map(l => (
+                    <div key={l.loteId} className="flex items-center justify-between text-xs text-slate-500">
+                      <span className="font-mono">{l.loteCodigo}</span>
+                      <span className={l.stockGramos < 0 ? 'text-red-500' : l.stockGramos === 0 ? 'text-slate-400' : 'text-amber-600'}>
+                        {fmtStock(l.stockGramos)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
               <button
                 onClick={() => setModal({ abierto: true, geneticaId: g.id })}

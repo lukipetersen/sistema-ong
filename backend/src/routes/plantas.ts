@@ -8,17 +8,18 @@ router.use(autenticar)
 
 // ─── Generación de código ───────────────────────────────────────────────────
 
-async function generarCodigoPlanta(loteId: string): Promise<string> {
-  const lote = await prisma.lote.findUnique({
-    where:   { id: loteId },
-    include: { genetica: { select: { nombre: true } } },
-  })
-  if (!lote) throw new Error('Lote no encontrado')
+async function generarCodigoPlanta(loteId: string, geneticaId: string): Promise<string> {
+  const [lote, genetica] = await Promise.all([
+    prisma.lote.findUnique({ where: { id: loteId }, select: { codigo: true } }),
+    prisma.genetica.findUnique({ where: { id: geneticaId }, select: { nombre: true } }),
+  ])
+  if (!lote)    throw new Error('Lote no encontrado')
+  if (!genetica) throw new Error('Genética no encontrada')
 
-  const partes  = lote.codigo.split('-')   // ['LOT', 'ABBREV', '2026', '01']
-  const abbrev  = partes[1] ?? abreviarNombre(lote.genetica.nombre)
-  const loteSeq = partes[3] ?? '01'
-  const prefix  = `PL-${abbrev}-L${loteSeq}-P`
+  const genAbbrev = abreviarNombre(genetica.nombre)
+  const partes    = lote.codigo.split('-')
+  const loteSeq   = partes[partes.length - 1] ?? '001'
+  const prefix    = `PL-${genAbbrev}-L${loteSeq}-P`
 
   return await prisma.$transaction(async (tx) => {
     const existentes = await tx.planta.findMany({
@@ -36,11 +37,12 @@ async function generarCodigoPlanta(loteId: string): Promise<string> {
 // GET /api/plantas — lista con filtros
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { loteId, estado, search, page = '1', limit = '200' } = req.query as Record<string, string>
+    const { loteId, geneticaId, estado, search, page = '1', limit = '200' } = req.query as Record<string, string>
 
     const where: Record<string, unknown> = {}
-    if (loteId) where.loteId = loteId
-    if (estado) where.estado = estado
+    if (loteId)    where.loteId    = loteId
+    if (geneticaId) where.geneticaId = geneticaId
+    if (estado)    where.estado    = estado
     if (search?.trim()) {
       const term = search.trim()
       where.OR = [
@@ -59,12 +61,8 @@ router.get('/', async (req: Request, res: Response) => {
         skip,
         take: Number(limit),
         include: {
-          lote: {
-            select: {
-              id: true, codigo: true, sala: true,
-              genetica: { select: { id: true, nombre: true } },
-            },
-          },
+          lote:    { select: { id: true, codigo: true, sala: true } },
+          genetica: { select: { id: true, nombre: true } },
         },
       }),
       prisma.planta.count({ where }),
@@ -82,12 +80,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     const planta = await prisma.planta.findUnique({
       where:   { id: req.params.id },
       include: {
-        lote: {
-          select: {
-            id: true, codigo: true, sala: true, estado: true,
-            genetica: { select: { id: true, nombre: true } },
-          },
-        },
+        lote:    { select: { id: true, codigo: true, sala: true, estado: true } },
+        genetica: { select: { id: true, nombre: true } },
       },
     })
     if (!planta) return res.status(404).json({ error: 'Planta no encontrada' })
@@ -100,17 +94,32 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/plantas
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { loteId, alias, observaciones } = req.body
-    if (!loteId) return res.status(400).json({ error: 'El loteId es obligatorio' })
+    const { loteId, geneticaId, alias, observaciones } = req.body
+    if (!loteId)    return res.status(400).json({ error: 'El loteId es obligatorio' })
+    if (!geneticaId) return res.status(400).json({ error: 'El geneticaId es obligatorio' })
 
-    const codigo = await generarCodigoPlanta(loteId)
+    // Verify the (loteId, geneticaId) combination exists in lote_geneticas
+    const loteGenetica = await prisma.loteGenetica.findUnique({
+      where: { loteId_geneticaId: { loteId, geneticaId } },
+    })
+    if (!loteGenetica) {
+      return res.status(400).json({
+        error: 'La genética seleccionada no está asociada a este lote. Agregala primero.',
+      })
+    }
+
+    const codigo = await generarCodigoPlanta(loteId, geneticaId)
 
     const planta = await prisma.planta.create({
       data: {
         codigo,
         loteId,
+        geneticaId,
         alias:         alias         || null,
         observaciones: observaciones || null,
+      },
+      include: {
+        genetica: { select: { id: true, nombre: true } },
       },
     })
     res.status(201).json(planta)
@@ -131,6 +140,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         ...(alias  !== undefined && { alias:  alias  || null }),
         ...(estado               && { estado }),
         observaciones: observaciones ?? undefined,
+      },
+      include: {
+        genetica: { select: { id: true, nombre: true } },
       },
     })
     res.json(planta)
