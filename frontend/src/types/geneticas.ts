@@ -48,10 +48,11 @@ export interface LoteResumen {
 export interface Lote extends LoteResumen {
   actualizadoEn: string
   loteGeneticas: LoteGenetica[]
-  genetica: { id: string; nombre: string } | null  // first genetic for compat
+  genetica: { id: string; nombre: string } | null
   totalPlantas: number
   plantasActivas: number
   plantasSeleccionadas: number
+  plantas?: { geneticaId: string; estado: string }[]
 }
 
 export interface LoteDetalle extends Lote {
