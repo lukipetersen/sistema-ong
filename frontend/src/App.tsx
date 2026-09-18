@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { AuthProvider, useAuth, type Rol } from '@/contexts/AuthContext'
 import Layout from '@/components/layout/Layout'
 import Login from '@/pages/auth/Login'
@@ -16,6 +17,31 @@ import Stock from '@/pages/Stock'
 import Configuracion from '@/pages/Configuracion'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(_err: Error, info: ErrorInfo) { console.error('ErrorBoundary:', _err, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-[#f7f5ef] flex items-center justify-center p-6">
+          <div className="max-w-md w-full rounded-xl bg-white border border-red-200 p-6 shadow-sm text-center">
+            <p className="text-red-600 font-semibold mb-2">Ocurrió un error inesperado</p>
+            <p className="text-sm text-gray-500 mb-4">{(this.state.error as Error).message}</p>
+            <button
+              onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
+              className="rounded-lg bg-[#4a7030] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d5e28]"
+            >
+              Volver al inicio
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // Rutas a las que tiene acceso cada rol especial (null = acceso completo)
 const RUTAS_POR_ROL: Partial<Record<Rol, string[]>> = {
@@ -97,12 +123,14 @@ function Rutas() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={qc}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Rutas />
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={qc}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Rutas />
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }

@@ -971,7 +971,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
                     const plantasDeGen = l.plantas?.filter((p: { geneticaId: string }) => p.geneticaId === lg.geneticaId)?.length ?? 0
                     return (
                       <span key={lg.id} className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
-                        {lg.genetica.nombre}
+                        {lg.genetica?.nombre ?? ''}
                         {l.totalPlantas > 0 && <span className="ml-1 text-green-600">· {plantasDeGen} pl.</span>}
                       </span>
                     )
