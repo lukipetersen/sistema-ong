@@ -968,7 +968,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
               {l.loteGeneticas.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-1">
                   {l.loteGeneticas.map(lg => {
-                    const plantasDeGen = l.plantas?.filter((p: { geneticaId: string }) => p.geneticaId === lg.geneticaId).length ?? 0
+                    const plantasDeGen = l.plantas?.filter((p: { geneticaId: string }) => p.geneticaId === lg.geneticaId)?.length ?? 0
                     return (
                       <span key={lg.id} className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
                         {lg.genetica.nombre}
