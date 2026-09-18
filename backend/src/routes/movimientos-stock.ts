@@ -226,7 +226,11 @@ router.post('/importar', async (req: Request, res: Response) => {
           continue
         }
 
+<<<<<<< HEAD
         await tx.movimientoStock.create({ data: { ...d } })
+=======
+        await tx.movimientoStock.create({ data: d })
+>>>>>>> origin/main
         cantInsertados++
       }
 
@@ -235,11 +239,19 @@ router.post('/importar', async (req: Request, res: Response) => {
         const k = `${d.fecha.toISOString().slice(0, 10)}|${d.geneticaId}|${d.tipo}|${d.cantidadGramos}`
         if (mapaFallback.has(k)) continue
 
+<<<<<<< HEAD
         await tx.movimientoStock.create({ data: { ...d } })
+=======
+        await tx.movimientoStock.create({ data: d })
+>>>>>>> origin/main
         cantInsertados++
       }
 
       // ── Recalcular stockGramos exacto por cada genética afectada ─────────
+<<<<<<< HEAD
+=======
+      // (suma todos sus movimientos → garantiza consistencia sin importar historial)
+>>>>>>> origin/main
       for (const geneticaId of geneticasAfectadas) {
         const movs = await tx.movimientoStock.findMany({
           where:  { geneticaId },
@@ -262,6 +274,7 @@ router.post('/importar', async (req: Request, res: Response) => {
 
 // ─── POST /api/movimientos-stock/recalcular ───────────────────────────────────
 // Recalcula stockGramos de TODAS las genéticas desde sus movimientos.
+<<<<<<< HEAD
 // También recalcula LoteGenetica.stockGramos.
 router.post('/recalcular', async (_req: Request, res: Response) => {
   try {
@@ -302,11 +315,36 @@ router.post('/recalcular', async (_req: Request, res: Response) => {
         await tx.loteGenetica.update({
           where: { loteId_geneticaId: { loteId: lg.loteId, geneticaId: lg.geneticaId } },
           data:  { stockGramos: stocksLoteGenetica.get(key) ?? 0 },
+=======
+// Usar cuando el stock muestre valores incorrectos.
+router.post('/recalcular', async (_req: Request, res: Response) => {
+  try {
+    const [movimientos, geneticas] = await Promise.all([
+      prisma.movimientoStock.findMany({ select: { geneticaId: true, tipo: true, cantidadGramos: true } }),
+      prisma.genetica.findMany({ select: { id: true } }),
+    ])
+
+    const stocks = new Map<string, number>()
+    for (const m of movimientos) {
+      const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      stocks.set(m.geneticaId, (stocks.get(m.geneticaId) ?? 0) + delta)
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const g of geneticas) {
+        await tx.genetica.update({
+          where: { id: g.id },
+          data:  { stockGramos: stocks.get(g.id) ?? 0 },
+>>>>>>> origin/main
         })
       }
     })
 
+<<<<<<< HEAD
     res.json({ ok: true, actualizadas: geneticas.length, lotesActualizados: loteGeneticas.length })
+=======
+    res.json({ ok: true, actualizadas: geneticas.length })
+>>>>>>> origin/main
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al recalcular' })
   }

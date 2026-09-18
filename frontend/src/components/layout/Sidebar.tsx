@@ -5,21 +5,27 @@ import {
 } from 'lucide-react'
 import { useAuth, type Rol } from '@/contexts/AuthContext'
 
-const nav = [
-  { label: 'Inicio',     icono: LayoutDashboard, ruta: '/',          exact: true },
-  { label: 'Finanzas',   icono: Landmark,         ruta: '/finanzas'  },
-  { label: 'Trazabilidad', icono: Leaf,             ruta: '/trazabilidad' },
-  { label: 'Stock',      icono: Package,          ruta: '/stock'     },
-  { label: 'Asociados',  icono: UserCheck,        ruta: '/asociados' },
-  { label: 'Forms',      icono: ClipboardList,    ruta: '/forms'     },
-  { label: 'Reportes',   icono: BarChart3,        ruta: '/reportes'  },
+const NAV_COMPLETO = [
+  { label: 'Inicio',       icono: LayoutDashboard, ruta: '/',             exact: true, roles: null },
+  { label: 'Finanzas',     icono: Landmark,         ruta: '/finanzas',                 roles: null },
+  { label: 'Trazabilidad', icono: Leaf,             ruta: '/trazabilidad',             roles: null },
+  { label: 'Stock',        icono: Package,          ruta: '/stock',                    roles: null },
+  { label: 'Asociados',    icono: UserCheck,        ruta: '/asociados',                roles: null },
+  { label: 'Forms',        icono: ClipboardList,    ruta: '/forms',                    roles: null },
+  { label: 'Reportes',     icono: BarChart3,        ruta: '/reportes',                 roles: null },
 ]
+
+// Qué ve cada rol
+const NAV_POR_ROL: Partial<Record<Rol, string[]>> = {
+  SOLO_STOCK: ['/stock'],
+}
 
 const ETIQUETA_ROL: Record<Rol, string> = {
   ADMINISTRADOR: 'Administrador',
   COORDINADOR:   'Coordinador',
   OPERADOR:      'Operador',
   SOLO_LECTURA:  'Solo lectura',
+  SOLO_STOCK:    'Stock',
 }
 
 interface SidebarProps {
@@ -29,6 +35,12 @@ interface SidebarProps {
 
 export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
   const { usuario, logout } = useAuth()
+
+  const rutasPermitidas = usuario ? NAV_POR_ROL[usuario.rol] ?? null : null
+  const nav = NAV_COMPLETO.filter(item =>
+    rutasPermitidas === null || rutasPermitidas.includes(item.ruta)
+  )
+  const puedeVerConfig = usuario && usuario.rol === 'ADMINISTRADOR'
 
   return (
     <>
@@ -97,22 +109,24 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
 
         {/* Footer */}
         <div className="px-3 pb-4 border-t border-[rgba(200,185,140,0.07)] pt-3 space-y-0.5">
-          <NavLink
-            to="/configuracion"
-            onClick={onCerrar}
-            className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all border-l-2 ${
-                isActive ? 'border-[#c9b97a] bg-[rgba(200,180,130,0.09)] text-[#e8d9b0]' : 'border-transparent text-[rgba(200,180,130,0.38)] hover:bg-[rgba(200,180,130,0.05)] hover:text-[rgba(230,215,175,0.75)]'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Settings className={`w-4 h-4 shrink-0 ${isActive ? 'text-acento-400' : 'text-[rgba(200,180,130,0.4)] group-hover:text-[rgba(200,180,130,0.7)]'}`} />
-                Configuración
-              </>
-            )}
-          </NavLink>
+          {puedeVerConfig && (
+            <NavLink
+              to="/configuracion"
+              onClick={onCerrar}
+              className={({ isActive }) =>
+                `group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all border-l-2 ${
+                  isActive ? 'border-[#c9b97a] bg-[rgba(200,180,130,0.09)] text-[#e8d9b0]' : 'border-transparent text-[rgba(200,180,130,0.38)] hover:bg-[rgba(200,180,130,0.05)] hover:text-[rgba(230,215,175,0.75)]'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Settings className={`w-4 h-4 shrink-0 ${isActive ? 'text-acento-400' : 'text-[rgba(200,180,130,0.4)] group-hover:text-[rgba(200,180,130,0.7)]'}`} />
+                  Configuración
+                </>
+              )}
+            </NavLink>
+          )}
 
           {usuario && (
             <div className="mt-2 flex items-center gap-2.5 px-3 py-3 rounded-lg bg-[rgba(200,180,130,0.04)]">
