@@ -171,9 +171,10 @@ model Usuario {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  sesiones    Sesion[]
-  auditoria   Auditoria[]
-  movimientos MovimientoStock[]
+  sesiones               Sesion[]
+  auditoria              Auditoria[]
+  movimientos            MovimientoStock[]
+  movimientosSubproducto MovimientoSubproducto[]
 
   @@map("usuarios")
 }
@@ -293,11 +294,12 @@ model Lote {
   creadoEn          DateTime   @default(now())
   actualizadoEn     DateTime   @updatedAt
 
-  plantas       Planta[]
-  historial     HistorialLote[]
-  seguimientos  SeguimientoTerapeutico[]
-  loteGeneticas LoteGenetica[]
-  movimientos   MovimientoStock[]
+  plantas                Planta[]
+  historial              HistorialLote[]
+  seguimientos           SeguimientoTerapeutico[]
+  loteGeneticas          LoteGenetica[]
+  movimientos            MovimientoStock[]
+  movimientosSubproducto MovimientoSubproducto[]
 
   @@index([estado])
   @@map("lotes")
@@ -432,6 +434,42 @@ model PagoAsociado {
 
   @@index([asociadoId])
   @@map("pagos_asociados")
+}
+
+// ─── Subproductos ──────────────────────────────────────────────────────────
+
+model Subproducto {
+  id            String   @id @default(cuid())
+  nombre        String   @unique
+  descripcion   String?
+  unidad        String   @default("unidad")
+  stockActual   Int      @default(0)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  movimientos MovimientoSubproducto[]
+
+  @@map("subproductos")
+}
+
+model MovimientoSubproducto {
+  id            String         @id @default(cuid())
+  subproductoId String
+  subproducto   Subproducto    @relation(fields: [subproductoId], references: [id])
+  loteId        String?
+  lote          Lote?          @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  tipo          TipoMovimiento
+  cantidad      Int
+  fecha         DateTime
+  observaciones String?
+  usuarioId     String?
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  creadoEn      DateTime       @default(now())
+
+  @@index([subproductoId])
+  @@index([loteId])
+  @@index([fecha])
+  @@map("movimientos_subproductos")
 }
 
 // ─── Auditoría ─────────────────────────────────────────────────────────────
