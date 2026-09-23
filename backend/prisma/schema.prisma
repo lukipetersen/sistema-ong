@@ -164,9 +164,10 @@ model Usuario {
   apellido      String
   email         String   @unique
   password      String
-  rol           Rol      @default(OPERADOR)
-  activo        Boolean  @default(true)
-  sedeId        String?
+  rol                Rol      @default(OPERADOR)
+  modulosPermitidos  String[] @default([])
+  activo             Boolean  @default(true)
+  sedeId             String?
   sede          Sede?    @relation(fields: [sedeId], references: [id])
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt

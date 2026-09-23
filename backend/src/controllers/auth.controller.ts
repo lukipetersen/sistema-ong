@@ -138,6 +138,7 @@ export async function yo(req: Request, res: Response) {
       apellido: true,
       email: true,
       rol: true,
+      modulosPermitidos: true,
       activo: true,
       sede: { select: { id: true, nombre: true } },
       creadoEn: true,

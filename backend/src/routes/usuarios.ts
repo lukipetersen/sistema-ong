@@ -10,7 +10,7 @@ router.use(autorizar('ADMINISTRADOR'))
 
 const CAMPOS_SEGUROS = {
   id: true, cuil: true, nombre: true, apellido: true, email: true,
-  rol: true, activo: true, sedeId: true, creadoEn: true,
+  rol: true, modulosPermitidos: true, activo: true, sedeId: true, creadoEn: true,
 } as const
 
 // ─── GET / ────────────────────────────────────────────────────────────────────
@@ -42,8 +42,14 @@ router.post('/', async (req: Request, res: Response) => {
     if (existe) return res.status(409).json({ error: existe.email === email ? 'El email ya está registrado' : 'El CUIL ya está registrado' })
 
     const hash = await bcrypt.hash(password, 12)
+    const { modulosPermitidos } = req.body
     const usuario = await prisma.usuario.create({
-      data: { nombre: nombre.trim(), apellido: apellido.trim(), email: email.trim().toLowerCase(), cuil: cuil.trim(), password: hash, rol },
+      data: {
+        nombre: nombre.trim(), apellido: apellido.trim(),
+        email: email.trim().toLowerCase(), cuil: cuil.trim(),
+        password: hash, rol,
+        modulosPermitidos: Array.isArray(modulosPermitidos) ? modulosPermitidos : [],
+      },
       select: CAMPOS_SEGUROS,
     })
     res.status(201).json(usuario)
@@ -55,7 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
 // ─── PUT /:id ─────────────────────────────────────────────────────────────────
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { nombre, apellido, email, cuil, rol, activo } = req.body
+    const { nombre, apellido, email, cuil, rol, activo, modulosPermitidos } = req.body
     const { id } = req.params
 
     // No puede desactivarse a sí mismo
@@ -72,8 +78,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (apellido  !== undefined) data.apellido  = apellido.trim()
     if (email     !== undefined) data.email     = email.trim().toLowerCase()
     if (cuil      !== undefined) data.cuil      = cuil.trim()
-    if (rol       !== undefined) data.rol       = rol
-    if (activo    !== undefined) data.activo    = activo
+    if (rol                !== undefined) data.rol                = rol
+    if (activo             !== undefined) data.activo             = activo
+    if (modulosPermitidos  !== undefined) data.modulosPermitidos  = Array.isArray(modulosPermitidos) ? modulosPermitidos : []
 
     const usuario = await prisma.usuario.update({
       where: { id },

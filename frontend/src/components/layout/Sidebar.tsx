@@ -15,7 +15,7 @@ const NAV_COMPLETO = [
   { label: 'Reportes',     icono: BarChart3,        ruta: '/reportes',                 roles: null },
 ]
 
-// Qué ve cada rol
+// Fallback por rol cuando no hay modulosPermitidos explícitos
 const NAV_POR_ROL: Partial<Record<Rol, string[]>> = {
   SOLO_STOCK: ['/stock'],
 }
@@ -36,10 +36,14 @@ interface SidebarProps {
 export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
   const { usuario, logout } = useAuth()
 
-  const rutasPermitidas = usuario ? NAV_POR_ROL[usuario.rol] ?? null : null
-  const nav = NAV_COMPLETO.filter(item =>
-    rutasPermitidas === null || rutasPermitidas.includes(item.ruta)
-  )
+  const nav = NAV_COMPLETO.filter(item => {
+    if (!usuario) return false
+    if (usuario.rol === 'ADMINISTRADOR') return true
+    const mods = usuario.modulosPermitidos
+    if (mods.length > 0) return mods.includes(item.ruta)
+    const fallback = NAV_POR_ROL[usuario.rol] ?? null
+    return fallback === null || fallback.includes(item.ruta)
+  })
   const puedeVerConfig = usuario && usuario.rol === 'ADMINISTRADOR'
 
   return (

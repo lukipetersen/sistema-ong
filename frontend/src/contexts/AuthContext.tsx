@@ -10,6 +10,7 @@ export interface UsuarioAuth {
   apellido: string
   email: string
   rol: Rol
+  modulosPermitidos: string[]
   sede?: { id: string; nombre: string } | null
 }
 
@@ -28,11 +29,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<UsuarioAuth | null>(null)
   const [cargando, setCargando] = useState(true)
 
+  const normalizar = (u: UsuarioAuth): UsuarioAuth => ({
+    ...u,
+    modulosPermitidos: u.modulosPermitidos ?? [],
+  })
+
   useEffect(() => {
     const token = sessionStorage.getItem('token')
     if (!token) { setCargando(false); return }
     api.get<UsuarioAuth>('/auth/yo')
-      .then(({ data }) => setUsuario(data))
+      .then(({ data }) => setUsuario(normalizar(data)))
       .catch(() => sessionStorage.clear())
       .finally(() => setCargando(false))
   }, [])
@@ -41,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post('/auth/login', { email, password })
     sessionStorage.setItem('token', data.token)
     sessionStorage.setItem('refreshToken', data.refreshToken)
-    setUsuario(data.usuario)
+    setUsuario(normalizar(data.usuario))
   }
 
   const logout = useCallback(async () => {

@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Component, type ReactNode, type ErrorInfo } from 'react'
-import { AuthProvider, useAuth, type Rol } from '@/contexts/AuthContext'
+import { AuthProvider, useAuth, type Rol, type UsuarioAuth } from '@/contexts/AuthContext'
 import Layout from '@/components/layout/Layout'
 import Login from '@/pages/auth/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -43,9 +43,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-// Rutas a las que tiene acceso cada rol especial (null = acceso completo)
-const RUTAS_POR_ROL: Partial<Record<Rol, string[]>> = {
-  SOLO_STOCK: ['/stock'],
+// Todos los roles pueden intentar acceder a rutas generales;
+// la visibilidad real la controla modulosPermitidos o el fallback SOLO_STOCK
+const todosLosRoles: Rol[] = ['ADMINISTRADOR', 'COORDINADOR', 'OPERADOR', 'SOLO_LECTURA', 'SOLO_STOCK']
+
+function primeraRutaPermitida(usuario: UsuarioAuth): string {
+  if (usuario.modulosPermitidos.length > 0) return usuario.modulosPermitidos[0]
+  if (usuario.rol === 'SOLO_STOCK') return '/stock'
+  return '/'
 }
 
 function Cargando() {
@@ -66,23 +71,40 @@ function RutaProtegida({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Guard de rol: redirige a la primera ruta permitida si el usuario no tiene acceso
-function RutaConRol({ roles, children }: { roles: Rol[]; children: React.ReactNode }) {
+// Guard: verifica rol Y acceso por módulo (modulosPermitidos)
+function RutaConRol({ roles, ruta, children }: { roles: Rol[]; ruta?: string; children: React.ReactNode }) {
   const { usuario } = useAuth()
   if (!usuario) return <Navigate to="/login" replace />
+
   if (!roles.includes(usuario.rol)) {
-    const redireccion = RUTAS_POR_ROL[usuario.rol]?.[0] ?? '/'
-    return <Navigate to={redireccion} replace />
+    return <Navigate to={primeraRutaPermitida(usuario)} replace />
   }
+
+  if (ruta && usuario.rol !== 'ADMINISTRADOR') {
+    const mods = usuario.modulosPermitidos
+    if (mods.length > 0) {
+      if (!mods.includes(ruta)) return <Navigate to={primeraRutaPermitida(usuario)} replace />
+    } else if (usuario.rol === 'SOLO_STOCK' && ruta !== '/stock') {
+      return <Navigate to="/stock" replace />
+    }
+  }
+
   return <>{children}</>
 }
 
-// Redirect automático al entrar: SOLO_STOCK va directo a /stock
+// Redirect al entrar: respeta modulosPermitidos o el fallback SOLO_STOCK
 function EntradaInicial() {
   const { usuario, cargando } = useAuth()
   if (cargando) return <Cargando />
   if (!usuario) return <Navigate to="/login" replace />
-  if (usuario.rol === 'SOLO_STOCK') return <Navigate to="/stock" replace />
+
+  const mods = usuario.modulosPermitidos
+  if (mods.length > 0 && !mods.includes('/')) {
+    return <Navigate to={mods[0]} replace />
+  }
+  if (usuario.rol === 'SOLO_STOCK' && mods.length === 0) {
+    return <Navigate to="/stock" replace />
+  }
   return <Dashboard />
 }
 
@@ -90,31 +112,25 @@ function Rutas() {
   const { usuario, cargando } = useAuth()
   if (cargando) return <Cargando />
 
-  // Roles con acceso general (todos excepto SOLO_STOCK)
-  const rolesGenerales: Rol[] = ['ADMINISTRADOR', 'COORDINADOR', 'OPERADOR', 'SOLO_LECTURA']
-
   return (
     <Routes>
       <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<RutaProtegida><Layout /></RutaProtegida>}>
         <Route index element={<EntradaInicial />} />
 
-        {/* Rutas de acceso general */}
-        <Route path="asociados"            element={<RutaConRol roles={rolesGenerales}><ListaAsociados /></RutaConRol>} />
-        <Route path="asociados/nuevo"      element={<RutaConRol roles={rolesGenerales}><FormularioAsociado modo="crear" /></RutaConRol>} />
-        <Route path="asociados/:id"        element={<RutaConRol roles={rolesGenerales}><FichaAsociado /></RutaConRol>} />
-        <Route path="asociados/:id/editar" element={<RutaConRol roles={rolesGenerales}><FormularioAsociado modo="editar" /></RutaConRol>} />
-        <Route path="finanzas"       element={<RutaConRol roles={rolesGenerales}><Finanzas /></RutaConRol>} />
-        <Route path="trazabilidad"   element={<RutaConRol roles={rolesGenerales}><Trazabilidad /></RutaConRol>} />
-        <Route path="socios"         element={<RutaConRol roles={rolesGenerales}><Proximamente /></RutaConRol>} />
-        <Route path="reportes"       element={<RutaConRol roles={rolesGenerales}><Reportes /></RutaConRol>} />
-        <Route path="forms"          element={<RutaConRol roles={rolesGenerales}><Forms /></RutaConRol>} />
-
-        {/* Stock: accesible para todos */}
-        <Route path="stock" element={<Stock />} />
+        <Route path="asociados"            element={<RutaConRol roles={todosLosRoles} ruta="/asociados"><ListaAsociados /></RutaConRol>} />
+        <Route path="asociados/nuevo"      element={<RutaConRol roles={todosLosRoles} ruta="/asociados"><FormularioAsociado modo="crear" /></RutaConRol>} />
+        <Route path="asociados/:id"        element={<RutaConRol roles={todosLosRoles} ruta="/asociados"><FichaAsociado /></RutaConRol>} />
+        <Route path="asociados/:id/editar" element={<RutaConRol roles={todosLosRoles} ruta="/asociados"><FormularioAsociado modo="editar" /></RutaConRol>} />
+        <Route path="finanzas"       element={<RutaConRol roles={todosLosRoles} ruta="/finanzas"><Finanzas /></RutaConRol>} />
+        <Route path="trazabilidad"   element={<RutaConRol roles={todosLosRoles} ruta="/trazabilidad"><Trazabilidad /></RutaConRol>} />
+        <Route path="socios"         element={<RutaConRol roles={todosLosRoles}><Proximamente /></RutaConRol>} />
+        <Route path="reportes"       element={<RutaConRol roles={todosLosRoles} ruta="/reportes"><Reportes /></RutaConRol>} />
+        <Route path="forms"          element={<RutaConRol roles={todosLosRoles} ruta="/forms"><Forms /></RutaConRol>} />
+        <Route path="stock"          element={<RutaConRol roles={todosLosRoles} ruta="/stock"><Stock /></RutaConRol>} />
 
         {/* Configuración: solo administradores */}
-        <Route path="configuracion" element={<RutaConRol roles={['ADMINISTRADOR']}><Configuracion /></RutaConRol>} />
+        <Route path="configuracion" element={<RutaConRol roles={['ADMINISTRADOR']} ruta="/configuracion"><Configuracion /></RutaConRol>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
