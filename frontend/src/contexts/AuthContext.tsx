@@ -10,6 +10,7 @@ export interface UsuarioAuth {
   apellido: string
   email: string
   rol: Rol
+  modulosPermitidos: string[]
   sede?: { id: string; nombre: string } | null
 }
 

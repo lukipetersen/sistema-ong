@@ -15,9 +15,20 @@ interface Usuario {
   email: string
   cuil: string
   rol: Rol
+  modulosPermitidos: string[]
   activo: boolean
   creadoEn: string
 }
+
+const MODULOS_DISPONIBLES = [
+  { ruta: '/',             label: 'Dashboard' },
+  { ruta: '/finanzas',     label: 'Finanzas' },
+  { ruta: '/trazabilidad', label: 'Trazabilidad' },
+  { ruta: '/stock',        label: 'Stock' },
+  { ruta: '/asociados',    label: 'Asociados' },
+  { ruta: '/forms',        label: 'Forms' },
+  { ruta: '/reportes',     label: 'Reportes' },
+]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +64,9 @@ function ModalUsuario({
   const [apellido, setApellido] = useState(usuario?.apellido ?? '')
   const [email,    setEmail]    = useState(usuario?.email    ?? '')
   const [cuil,     setCuil]     = useState(usuario?.cuil     ?? '')
-  const [rol,      setRol]      = useState<Rol>(usuario?.rol ?? 'OPERADOR')
+  const [rol,               setRol]    = useState<Rol>(usuario?.rol ?? 'OPERADOR')
+  const [modulosPermitidos, setMods]   = useState<string[]>(usuario?.modulosPermitidos ?? [])
+  const [modulosEspecificos, setEspec] = useState((usuario?.modulosPermitidos ?? []).length > 0)
   const [password, setPassword] = useState('')
   const [verPass,  setVerPass]  = useState(false)
   const [guardando, setGuard]   = useState(false)
@@ -66,12 +79,16 @@ function ModalUsuario({
     if (!modoEdicion && (!password || password.length < 6)) {
       setError('La contraseña debe tener al menos 6 caracteres'); return
     }
+    if (rol !== 'ADMINISTRADOR' && modulosEspecificos && modulosPermitidos.length === 0) {
+      setError('Seleccioná al menos un módulo'); return
+    }
     setGuard(true); setError('')
     try {
+      const mods = modulosEspecificos ? modulosPermitidos : []
       if (modoEdicion) {
-        await api.put(`/usuarios/${usuario!.id}`, { nombre, apellido, email, cuil, rol })
+        await api.put(`/usuarios/${usuario!.id}`, { nombre, apellido, email, cuil, rol, modulosPermitidos: mods })
       } else {
-        await api.post('/usuarios', { nombre, apellido, email, cuil, rol, password })
+        await api.post('/usuarios', { nombre, apellido, email, cuil, rol, password, modulosPermitidos: mods })
       }
       onGuardar()
       onCerrar()
@@ -123,10 +140,56 @@ function ModalUsuario({
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
-            {rol === 'SOLO_STOCK' && (
-              <p className="text-xs text-amber-600 mt-1">Este usuario solo verá el módulo de Stock.</p>
-            )}
           </div>
+
+          {/* Selector de módulos (cualquier rol salvo ADMINISTRADOR) */}
+          {rol !== 'ADMINISTRADOR' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Acceso a módulos</label>
+              <div className="flex gap-4 mb-2">
+                <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!modulosEspecificos}
+                    onChange={() => { setEspec(false); setMods([]) }}
+                    className="accent-[#4a7030]"
+                  />
+                  Todos los módulos
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={modulosEspecificos}
+                    onChange={() => { setEspec(true); if (modulosPermitidos.length === 0) setMods(['/stock']) }}
+                    className="accent-[#4a7030]"
+                  />
+                  Módulos específicos
+                </label>
+              </div>
+              {modulosEspecificos && (
+                <div className="border border-slate-200 rounded-xl p-3 grid grid-cols-2 gap-1.5">
+                  {MODULOS_DISPONIBLES.map(m => (
+                    <label key={m.ruta} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={modulosPermitidos.includes(m.ruta)}
+                        onChange={e => {
+                          setMods(prev =>
+                            e.target.checked ? [...prev, m.ruta] : prev.filter(r => r !== m.ruta)
+                          )
+                        }}
+                        className="rounded accent-[#4a7030]"
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {modulosEspecificos && modulosPermitidos.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">Seleccioná al menos un módulo.</p>
+              )}
+            </div>
+          )}
           {!modoEdicion && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña *</label>
