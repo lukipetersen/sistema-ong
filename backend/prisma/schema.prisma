@@ -287,6 +287,7 @@ model MovimientoStock {
 model Lote {
   id                String     @id @default(cuid())
   codigo            String     @unique
+  nombre            String?
   sala              Sala
   fechaInicio       DateTime
   fechaFinalizacion DateTime?

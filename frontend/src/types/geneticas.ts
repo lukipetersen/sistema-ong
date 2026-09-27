@@ -34,6 +34,7 @@ export interface GeneticaDetalle extends Omit<Genetica, 'totalLotes' | 'lotesAct
 export interface LoteResumen {
   id: string
   codigo: string
+  nombre: string | null
   sala: Sala
   estado: EstadoLote
   fechaInicio: string

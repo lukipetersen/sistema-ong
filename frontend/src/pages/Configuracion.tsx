@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Pencil, KeyRound, X, AlertCircle, Loader2,
-  UserCheck, UserX, ChevronDown, Eye, EyeOff,
+  UserCheck, UserX, ChevronDown, Eye, EyeOff, Save,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth, type Rol } from '@/contexts/AuthContext'
@@ -324,6 +324,40 @@ export default function Configuracion() {
   const [confirmToggle, setConfirmToggle] = useState<Usuario | null>(null)
   const [toggling, setToggling]   = useState(false)
 
+  // Sala names
+  const [sala1, setSala1]         = useState('Sala 1')
+  const [sala2, setSala2]         = useState('Sala 2')
+  const [guardandoSalas, setGuardandoSalas] = useState(false)
+  const [exitoSalas, setExitoSalas] = useState(false)
+
+  useEffect(() => {
+    async function cargarSalas() {
+      try {
+        const [r1, r2] = await Promise.all([
+          api.get<{ clave: string; valor: string }>('/configuracion/sala_SALA_1').catch(() => null),
+          api.get<{ clave: string; valor: string }>('/configuracion/sala_SALA_2').catch(() => null),
+        ])
+        if (r1?.data?.valor) setSala1(r1.data.valor)
+        if (r2?.data?.valor) setSala2(r2.data.valor)
+      } catch { /* keep defaults */ }
+    }
+    cargarSalas()
+  }, [])
+
+  async function guardarSalas() {
+    setGuardandoSalas(true)
+    try {
+      await Promise.all([
+        api.put('/configuracion/sala_SALA_1', { valor: sala1 || 'Sala 1' }),
+        api.put('/configuracion/sala_SALA_2', { valor: sala2 || 'Sala 2' }),
+      ])
+      setExitoSalas(true)
+      setTimeout(() => setExitoSalas(false), 2000)
+    } finally {
+      setGuardandoSalas(false)
+    }
+  }
+
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
@@ -427,6 +461,45 @@ export default function Configuracion() {
           )}
         </div>
       )}
+
+      {/* Nombres de salas */}
+      <div className="bg-white rounded-xl border border-[#ede8dc] p-5">
+        <h3 className="font-semibold text-slate-800 mb-1">Nombres de salas</h3>
+        <p className="text-sm text-slate-500 mb-4">Personalizá los nombres que se muestran en Trazabilidad.</p>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sala 1</label>
+            <input
+              value={sala1}
+              onChange={e => setSala1(e.target.value)}
+              placeholder="Sala 1"
+              className="campo w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sala 2</label>
+            <input
+              value={sala2}
+              onChange={e => setSala2(e.target.value)}
+              placeholder="Sala 2"
+              className="campo w-full"
+            />
+          </div>
+        </div>
+        {exitoSalas && (
+          <p className="text-sm text-[#4a7030] bg-[#edf5e0] border border-[#c8e0a0] rounded-lg px-3 py-2 mb-3">
+            Nombres guardados correctamente.
+          </p>
+        )}
+        <button
+          onClick={guardarSalas}
+          disabled={guardandoSalas}
+          className="flex items-center gap-2 px-4 py-2 bg-[#4a7030] text-white rounded-xl text-sm font-medium hover:bg-[#3d5e28] transition-colors disabled:opacity-50"
+        >
+          {guardandoSalas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {guardandoSalas ? 'Guardando...' : 'Guardar nombres'}
+        </button>
+      </div>
 
       {/* Modales */}
       {modal?.tipo === 'crear' && (
