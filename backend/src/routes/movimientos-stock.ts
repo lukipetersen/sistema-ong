@@ -9,11 +9,12 @@ router.use(autenticar)
 // ─── GET /api/movimientos-stock ──────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, loteId, tipo, mes, page = '1', limit = '50' } = req.query as Record<string, string>
+    const { geneticaId, loteId, tipo, mes, asociadoId, page = '1', limit = '50' } = req.query as Record<string, string>
 
     const where: Record<string, unknown> = {}
-    if (geneticaId) where.geneticaId = geneticaId
-    if (loteId)     where.loteId     = loteId
+    if (geneticaId)  where.geneticaId  = geneticaId
+    if (loteId)      where.loteId      = loteId
+    if (asociadoId)  where.asociadoId  = asociadoId
     if (tipo && ['INGRESO', 'EGRESO'].includes(tipo)) where.tipo = tipo
     if (mes) {
       const [anio, m] = mes.split('-').map(Number)
@@ -28,9 +29,10 @@ router.get('/', async (req: Request, res: Response) => {
         skip,
         take: Number(limit),
         include: {
-          genetica: { select: { id: true, nombre: true } },
-          lote:     { select: { id: true, codigo: true } },
-          usuario:  { select: { id: true, nombre: true, apellido: true } },
+          genetica:  { select: { id: true, nombre: true } },
+          lote:      { select: { id: true, codigo: true, nombre: true } },
+          usuario:   { select: { id: true, nombre: true, apellido: true } },
+          asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
       }),
       prisma.movimientoStock.count({ where }),
@@ -79,7 +81,7 @@ router.get('/resumen', async (_req: Request, res: Response) => {
 // Crea movimiento + actualiza stock en transacción. Permite stock negativo (avisa).
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones } = req.body
+    const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
 
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
@@ -109,7 +111,8 @@ router.post('/', async (req: Request, res: Response) => {
       const mov = await tx.movimientoStock.create({
         data: {
           geneticaId,
-          loteId: loteId || null,
+          loteId:     loteId     || null,
+          asociadoId: asociadoId || null,
           tipo: tipo as TipoMovimiento,
           cantidadGramos: gramos,
           fecha: new Date(fecha),
@@ -117,9 +120,10 @@ router.post('/', async (req: Request, res: Response) => {
           usuarioId,
         },
         include: {
-          genetica: { select: { id: true, nombre: true, stockGramos: true } },
-          lote:     { select: { id: true, codigo: true } },
-          usuario:  { select: { id: true, nombre: true, apellido: true } },
+          genetica:  { select: { id: true, nombre: true, stockGramos: true } },
+          lote:      { select: { id: true, codigo: true, nombre: true } },
+          usuario:   { select: { id: true, nombre: true, apellido: true } },
+          asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
       })
       return [mov, genetica.stockGramos]
@@ -310,6 +314,76 @@ router.post('/recalcular', async (_req: Request, res: Response) => {
     res.json({ ok: true, actualizadas: geneticas.length, lotesActualizados: loteGeneticas.length })
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al recalcular' })
+  }
+})
+
+// ─── PUT /api/movimientos-stock/:id ─────────────────────────────────────────
+// Edita un movimiento. Recalcula el delta de stock correctamente.
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { cantidadGramos, fecha, observaciones, loteId, asociadoId } = req.body
+    if (!cantidadGramos || Number(cantidadGramos) <= 0)
+      return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
+    if (!fecha)
+      return res.status(400).json({ error: 'Falta la fecha' })
+
+    const nuevoGramos = Math.round(Number(cantidadGramos))
+
+    const [movActualizado, stockActual] = await prisma.$transaction(async (tx) => {
+      const anterior = await tx.movimientoStock.findUnique({ where: { id: req.params.id } })
+      if (!anterior) throw new Error('Movimiento no encontrado')
+
+      // Revert old delta
+      const deltaAnterior = anterior.tipo === 'INGRESO' ? -anterior.cantidadGramos : anterior.cantidadGramos
+      const g = await tx.genetica.update({
+        where: { id: anterior.geneticaId },
+        data:  { stockGramos: { increment: deltaAnterior } },
+      })
+      if (anterior.loteId) {
+        await tx.loteGenetica.updateMany({
+          where: { loteId: anterior.loteId, geneticaId: anterior.geneticaId },
+          data:  { stockGramos: { increment: deltaAnterior } },
+        })
+      }
+
+      // Apply new delta
+      const nuevoLoteId  = loteId !== undefined ? (loteId || null) : anterior.loteId
+      const deltaNuevo   = anterior.tipo === 'INGRESO' ? nuevoGramos : -nuevoGramos
+      const gFinal = await tx.genetica.update({
+        where: { id: anterior.geneticaId },
+        data:  { stockGramos: { increment: deltaNuevo } },
+      })
+      if (nuevoLoteId) {
+        await tx.loteGenetica.upsert({
+          where: { loteId_geneticaId: { loteId: nuevoLoteId, geneticaId: anterior.geneticaId } },
+          update: { stockGramos: { increment: deltaNuevo } },
+          create: { loteId: nuevoLoteId, geneticaId: anterior.geneticaId, stockGramos: deltaNuevo },
+        })
+      }
+
+      const mov = await tx.movimientoStock.update({
+        where: { id: req.params.id },
+        data: {
+          cantidadGramos: nuevoGramos,
+          fecha:          new Date(fecha),
+          observaciones:  observaciones ?? anterior.observaciones,
+          loteId:         nuevoLoteId,
+          asociadoId:     asociadoId !== undefined ? (asociadoId || null) : anterior.asociadoId,
+        },
+        include: {
+          genetica:  { select: { id: true, nombre: true, stockGramos: true } },
+          lote:      { select: { id: true, codigo: true, nombre: true } },
+          usuario:   { select: { id: true, nombre: true, apellido: true } },
+          asociado:  { select: { id: true, nombre: true, apellido: true } },
+        },
+      })
+      return [mov, gFinal.stockGramos]
+    })
+
+    res.json({ ...movActualizado, stockNegativo: stockActual < 0, stockActual })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error al editar movimiento'
+    res.status(e instanceof Error && e.message === 'Movimiento no encontrado' ? 404 : 500).json({ error: msg })
   }
 })
 

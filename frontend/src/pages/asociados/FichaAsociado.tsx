@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus, Trash2, AlertCircle, CheckCircle2, Clock, X } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2, AlertCircle, CheckCircle2, Clock, X, TrendingUp, TrendingDown } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Asociado, SeguimientoTerapeutico, PagoAsociado, CuotaMes, LABEL_PATOLOGIA, LABEL_ESTADO, LABEL_CUOTA } from '@/types/asociados'
 import { BadgeEstado, BadgeCuota } from './ListaAsociados'
@@ -30,7 +30,22 @@ const opcionesMeses = () => Array.from({ length: 10 }, (_, i) => {
   return { value: val, label: labelMes(val) }
 })
 
-type Tab = 'datos' | 'terapeutico' | 'financiero' | 'seguimientos'
+type Tab = 'datos' | 'terapeutico' | 'financiero' | 'seguimientos' | 'stock'
+
+interface MovStock {
+  id: string
+  tipo: 'INGRESO' | 'EGRESO'
+  cantidadGramos: number
+  fecha: string
+  observaciones: string | null
+  genetica: { id: string; nombre: string }
+  lote: { id: string; codigo: string } | null
+}
+
+function fmtGramos(g: number) {
+  if (g >= 1000) return `${(g / 1000).toFixed(2).replace(/\.?0+$/, '')} kg`
+  return `${g} g`
+}
 type AsociadoCompleto = Asociado & { seguimientos: SeguimientoTerapeutico[]; pagos: PagoAsociado[]; cuotas: CuotaMes[] }
 
 export default function FichaAsociado() {
@@ -49,6 +64,10 @@ export default function FichaAsociado() {
   const [formCuota, setFormCuota] = useState<{ mes: string; monto: string } | null>(null)
   const [savingCuota, setSavingCuota] = useState(false)
 
+  // Estado stock
+  const [movStock, setMovStock] = useState<MovStock[]>([])
+  const [cargandoStock, setCargandoStock] = useState(false)
+
   async function cargar() {
     setCargando(true)
     try {
@@ -60,6 +79,15 @@ export default function FichaAsociado() {
   }
 
   useEffect(() => { cargar() }, [id])
+
+  useEffect(() => {
+    if (tab !== 'stock' || !id) return
+    setCargandoStock(true)
+    api.get(`/movimientos-stock?asociadoId=${id}&limit=200`)
+      .then(({ data }) => setMovStock(Array.isArray(data.movimientos) ? data.movimientos : []))
+      .catch(() => {})
+      .finally(() => setCargandoStock(false))
+  }, [tab, id])
 
   async function eliminarAsociado() {
     await api.delete(`/asociados/${id}`)
@@ -108,6 +136,7 @@ export default function FichaAsociado() {
     { key: 'terapeutico',  label: 'Terapéutico' },
     { key: 'financiero',   label: 'Financiero' },
     { key: 'seguimientos', label: `Seguimientos (${asociado.seguimientos.length})` },
+    { key: 'stock',        label: 'Stock' },
   ]
 
   return (
@@ -400,6 +429,80 @@ export default function FichaAsociado() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Tab: Stock ─── */}
+        {tab === 'stock' && (
+          <div>
+            <h2 className="text-base font-semibold text-slate-800 mb-4">Movimientos de stock</h2>
+            {cargandoStock ? (
+              <p className="text-sm text-slate-400 py-8 text-center">Cargando...</p>
+            ) : movStock.length === 0 ? (
+              <div className="text-center py-10 text-slate-400">
+                <TrendingDown className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No hay movimientos de stock asociados a este paciente.</p>
+              </div>
+            ) : (
+              <>
+                {/* Totales por genética (solo egresos) */}
+                {(() => {
+                  const egresos = movStock.filter(m => m.tipo === 'EGRESO')
+                  const totalesPorGen = new Map<string, { nombre: string; total: number }>()
+                  egresos.forEach(m => {
+                    const prev = totalesPorGen.get(m.genetica.id) ?? { nombre: m.genetica.nombre, total: 0 }
+                    totalesPorGen.set(m.genetica.id, { ...prev, total: prev.total + m.cantidadGramos })
+                  })
+                  if (totalesPorGen.size === 0) return null
+                  return (
+                    <div className="mb-5 rounded-lg bg-slate-50 p-4">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Total egresos por genética</p>
+                      <div className="flex flex-wrap gap-3">
+                        {Array.from(totalesPorGen.values()).map(g => (
+                          <div key={g.nombre} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                            <span className="text-sm font-medium text-slate-700">{g.nombre}</span>
+                            <span className="text-sm font-bold text-red-600">{fmtGramos(g.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Lista de movimientos */}
+                <div className="overflow-x-auto rounded-xl border border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-xs text-slate-400 font-semibold uppercase tracking-wide">
+                        <th className="px-4 py-3 text-left">Fecha</th>
+                        <th className="px-4 py-3 text-left">Genética</th>
+                        <th className="px-4 py-3 text-left">Tipo</th>
+                        <th className="px-4 py-3 text-right">Cantidad</th>
+                        <th className="px-4 py-3 text-left hidden md:table-cell">Lote</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {movStock.map(m => (
+                        <tr key={m.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(m.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{m.genetica.nombre}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
+                              {m.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                              {m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+                            </span>
+                          </td>
+                          <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
+                            {m.tipo === 'EGRESO' ? '-' : '+'}{fmtGramos(m.cantidadGramos)}
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 font-mono text-xs hidden md:table-cell">{m.lote?.codigo ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}

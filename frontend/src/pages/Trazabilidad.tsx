@@ -1,8 +1,35 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, ChevronLeft, Leaf, Layers, FlaskConical,
   Pencil, Trash2, AlertCircle, X, ChevronDown,
+  Upload, FileText, FileSpreadsheet, Image, File, Download, Eye,
 } from 'lucide-react'
+
+interface Archivo {
+  id: string
+  nombre: string
+  tipo: string
+  tamanio: number
+  creadoEn: string
+}
+
+function fmtTamanio(bytes: number): string {
+  if (bytes < 1024)           return `${bytes} B`
+  if (bytes < 1024 * 1024)    return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function iconoArchivo(tipo: string) {
+  if (tipo === 'application/pdf')                                         return <FileText className="w-5 h-5 text-red-500" />
+  if (tipo.startsWith('image/'))                                          return <Image    className="w-5 h-5 text-blue-500" />
+  if (tipo.includes('spreadsheet') || tipo.includes('excel'))             return <FileSpreadsheet className="w-5 h-5 text-green-600" />
+  if (tipo.includes('wordprocessingml') || tipo.includes('msword'))       return <FileText className="w-5 h-5 text-blue-600" />
+  return <File className="w-5 h-5 text-gray-400" />
+}
+
+function puedePrevisualizar(tipo: string): boolean {
+  return tipo === 'application/pdf' || tipo.startsWith('image/')
+}
 import type { Genetica, LoteGenetica, Lote, LoteDetalle, Planta } from '../types/geneticas'
 import {
   ESTADO_LOTE_LABELS, ESTADO_PLANTA_LABELS, SALA_LABELS,
@@ -57,6 +84,41 @@ function ModalConfirm({ mensaje, onConfirmar, onCancelar, cargando }: {
             className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60">
             {cargando ? 'Eliminando...' : 'Eliminar'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Modal preview archivo ───────────────────────────────────────────────────
+
+function ModalPreviewArchivo({ archivo, blobUrl, onCerrar }: {
+  archivo: Archivo
+  blobUrl: string
+  onCerrar: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="flex w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between border-b px-5 py-3 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {iconoArchivo(archivo.tipo)}
+            <span className="text-sm font-medium text-gray-800 truncate">{archivo.nombre}</span>
+            <span className="text-xs text-gray-400 shrink-0">{fmtTamanio(archivo.tamanio)}</span>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <a href={blobUrl} download={archivo.nombre}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+              <Download className="w-3.5 h-3.5" /> Descargar
+            </a>
+            <button onClick={onCerrar} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden" style={{ minHeight: '60vh' }}>
+          {archivo.tipo.startsWith('image/')
+            ? <img src={blobUrl} alt={archivo.nombre} className="w-full h-full object-contain p-4" />
+            : <iframe src={blobUrl} title={archivo.nombre} className="w-full h-full border-0" style={{ minHeight: '60vh' }} />
+          }
         </div>
       </div>
     </div>
@@ -499,6 +561,11 @@ function VistaLoteDetalle({
   const [data, setData]                 = useState<LoteDetalle | null>(null)
   const [cargando, setCargando]         = useState(true)
   const [filtroGenetica, setFiltroGen]  = useState('')
+  const [archivos, setArchivos]         = useState<Archivo[]>([])
+  const [subiendoArch, setSubiendo]     = useState(false)
+  const [errorArch, setErrorArch]       = useState('')
+  const [preview, setPreview]           = useState<{ archivo: Archivo; url: string } | null>(null)
+  const inputArchivoRef                 = useRef<HTMLInputElement>(null)
   const [error, setError]               = useState('')
   const [guardando, setGuardando]       = useState(false)
   const [eliminando, setEliminando]     = useState(false)
@@ -520,6 +587,16 @@ function VistaLoteDetalle({
   }, [loteId])
 
   useEffect(() => { cargar() }, [cargar])
+
+  const cargarArchivos = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/lotes/${loteId}/archivos`, { headers: authHeaders() })
+      const d = await r.json()
+      setArchivos(Array.isArray(d) ? d : [])
+    } catch { /* ignorar */ }
+  }, [loteId])
+
+  useEffect(() => { cargarArchivos() }, [cargarArchivos])
 
   if (cargando) return <div className="flex justify-center py-16 text-gray-400">Cargando...</div>
   if (!data)    return <div className="py-16 text-center text-red-500">{error || 'Lote no encontrado'}</div>
@@ -599,6 +676,48 @@ function VistaLoteDetalle({
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error')
     } finally { setEliminando(false) }
+  }
+
+  async function subirArchivo(file: File) {
+    setSubiendo(true); setErrorArch('')
+    try {
+      const token = sessionStorage.getItem('token')
+      const fd = new FormData()
+      fd.append('archivo', file)
+      const r = await fetch(`${API}/api/lotes/${loteId}/archivos`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      })
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error) }
+      cargarArchivos()
+    } catch (e) { setErrorArch(e instanceof Error ? e.message : 'Error al subir') }
+    finally { setSubiendo(false) }
+  }
+
+  async function eliminarArchivo(id: string) {
+    try {
+      await fetch(`${API}/api/lotes/archivos/${id}`, { method: 'DELETE', headers: authHeaders() })
+      cargarArchivos()
+      if (preview?.archivo.id === id) { URL.revokeObjectURL(preview.url); setPreview(null) }
+    } catch { setErrorArch('Error al eliminar archivo') }
+  }
+
+  async function verArchivo(archivo: Archivo) {
+    try {
+      const token = sessionStorage.getItem('token')
+      const r = await fetch(`${API}/api/lotes/archivos/${archivo.id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      if (!puedePrevisualizar(archivo.tipo)) {
+        const a = document.createElement('a'); a.href = url; a.download = archivo.nombre; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      } else {
+        setPreview({ archivo, url })
+      }
+    } catch { setErrorArch('Error al abrir archivo') }
   }
 
   return (
@@ -764,6 +883,71 @@ function VistaLoteDetalle({
         )}
       </section>
 
+      {/* Sección: Biblioteca de archivos */}
+      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">Archivos del lote ({archivos.length})</h3>
+          <button
+            onClick={() => inputArchivoRef.current?.click()}
+            disabled={subiendoArch}
+            className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {subiendoArch ? 'Subiendo...' : 'Subir archivo'}
+          </button>
+          <input
+            ref={inputArchivoRef}
+            type="file"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) subirArchivo(f); e.target.value = '' }}
+          />
+        </div>
+
+        {errorArch && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />{errorArch}
+            <button onClick={() => setErrorArch('')} className="ml-auto"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
+
+        {archivos.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-gray-400">
+            <File className="h-8 w-8 opacity-30" />
+            <p className="text-xs">No hay archivos en este lote. Subí el primero.</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {archivos.map(arch => (
+              <div key={arch.id} className="flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50">
+                {iconoArchivo(arch.tipo)}
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-800">{arch.nombre}</p>
+                  <p className="text-xs text-gray-400">
+                    {fmtTamanio(arch.tamanio)} · {new Date(arch.creadoEn).toLocaleDateString('es-AR')}
+                  </p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  {puedePrevisualizar(arch.tipo) && (
+                    <button onClick={() => verArchivo(arch)}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600" title="Vista previa">
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button onClick={() => verArchivo(arch)}
+                    className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Descargar">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => eliminarArchivo(arch.id)}
+                    className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Eliminar">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Modals */}
       {modalAgregarGen && (
         <ModalAgregarGenetica
@@ -810,6 +994,14 @@ function VistaLoteDetalle({
           onConfirmar={() => quitarGenetica(confirmarElimGen)}
           onCancelar={() => setConfGen(null)}
           cargando={eliminando}
+        />
+      )}
+
+      {preview && (
+        <ModalPreviewArchivo
+          archivo={preview.archivo}
+          blobUrl={preview.url}
+          onCerrar={() => { URL.revokeObjectURL(preview.url); setPreview(null) }}
         />
       )}
     </div>
