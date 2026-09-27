@@ -95,7 +95,7 @@ router.get('/', async (req: Request, res: Response) => {
     ])
 
     const data = lotes.map(l => ({
-      id: l.id, codigo: l.codigo, sala: l.sala, estado: l.estado,
+      id: l.id, codigo: l.codigo, nombre: l.nombre, sala: l.sala, estado: l.estado,
       fechaInicio: l.fechaInicio, fechaFinalizacion: l.fechaFinalizacion,
       observaciones: l.observaciones, creadoEn: l.creadoEn,
       loteGeneticas: l.loteGeneticas.map(lg => ({
@@ -165,7 +165,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const {
-      sala, fechaInicio, observaciones,
+      sala, fechaInicio, observaciones, nombre,
       geneticaIds = [] as string[],
       cantidadPlantas = 0,
     } = req.body
@@ -180,6 +180,7 @@ router.post('/', async (req: Request, res: Response) => {
       const nuevo = await tx.lote.create({
         data: {
           codigo,
+          nombre:        nombre || null,
           sala,
           fechaInicio:   new Date(fechaInicio),
           observaciones: observaciones || null,
@@ -297,7 +298,7 @@ router.delete('/:id/geneticas/:geneticaId', async (req: Request, res: Response) 
 // PUT /api/lotes/:id
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { sala, fechaInicio, fechaFinalizacion, estado, observaciones } = req.body
+    const { sala, fechaInicio, fechaFinalizacion, estado, observaciones, nombre } = req.body
 
     const anterior = await prisma.lote.findUnique({ where: { id: req.params.id } })
     if (!anterior) return res.status(404).json({ error: 'Lote no encontrado' })
@@ -313,6 +314,7 @@ router.put('/:id', async (req: Request, res: Response) => {
           }),
           ...(estado            && { estado }),
           observaciones: observaciones ?? undefined,
+          ...(nombre !== undefined && { nombre: nombre || null }),
         },
       })
 

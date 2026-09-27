@@ -66,14 +66,17 @@ function ModalConfirm({ mensaje, onConfirmar, onCancelar, cargando }: {
 // ─── Modal Lote ──────────────────────────────────────────────────────────────
 
 function ModalNuevoLote({
-  geneticasDisponibles, onGuardar, onCerrar, cargando,
+  geneticasDisponibles, onGuardar, onCerrar, cargando, salaLabels,
 }: {
   geneticasDisponibles: Genetica[]
-  onGuardar: (data: { sala: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) => Promise<void>
+  onGuardar: (data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) => Promise<void>
   onCerrar: () => void
   cargando: boolean
+  salaLabels?: Record<string, string>
 }) {
+  const labels = salaLabels ?? SALA_LABELS
   const [sala, setSala]             = useState('SALA_1')
+  const [nombre, setNombre]         = useState('')
   const [fechaInicio, setFecha]     = useState(new Date().toISOString().slice(0, 10))
   const [observaciones, setObs]     = useState('')
   const [geneticaIds, setGIds]      = useState<string[]>([])
@@ -82,7 +85,7 @@ function ModalNuevoLote({
 
   async function submit() {
     if (!sala || !fechaInicio) { setError('Sala y fecha inicio son obligatorios'); return }
-    await onGuardar({ sala, fechaInicio, observaciones, geneticaIds, cantidadPlantas: cantPlantas })
+    await onGuardar({ sala, nombre, fechaInicio, observaciones, geneticaIds, cantidadPlantas: cantPlantas })
   }
 
   function toggleGenetica(id: string) {
@@ -102,7 +105,7 @@ function ModalNuevoLote({
               <label className="mb-1 block text-sm font-medium text-gray-700">Sala *</label>
               <select value={sala} onChange={e => setSala(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
-                {Object.entries(SALA_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
@@ -110,6 +113,13 @@ function ModalNuevoLote({
               <input type="date" value={fechaInicio} onChange={e => setFecha(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none" />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Nombre del lote (opcional)</label>
+            <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Ej: Cosecha otoño 2026"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none" />
           </div>
 
           <div>
@@ -176,20 +186,23 @@ function ModalNuevoLote({
 
 // ─── Modal editar lote ───────────────────────────────────────────────────────
 
-function ModalEditarLote({ lote, onGuardar, onCerrar, cargando }: {
+function ModalEditarLote({ lote, onGuardar, onCerrar, cargando, salaLabels }: {
   lote: Lote
   onGuardar: (data: Record<string, unknown>) => Promise<void>
   onCerrar: () => void
   cargando: boolean
+  salaLabels?: Record<string, string>
 }) {
+  const labels = salaLabels ?? SALA_LABELS
   const [sala, setSala]           = useState(lote.sala)
+  const [nombre, setNombre]       = useState(lote.nombre ?? '')
   const [fechaInicio, setFecha]   = useState(lote.fechaInicio.slice(0, 10))
   const [fechaFin, setFechaFin]   = useState(lote.fechaFinalizacion?.slice(0, 10) ?? '')
   const [estado, setEstado]       = useState(lote.estado)
   const [obs, setObs]             = useState(lote.observaciones ?? '')
 
   async function submit() {
-    await onGuardar({ sala, fechaInicio, fechaFinalizacion: fechaFin || null, estado, observaciones: obs || null })
+    await onGuardar({ sala, nombre: nombre || null, fechaInicio, fechaFinalizacion: fechaFin || null, estado, observaciones: obs || null })
   }
 
   return (
@@ -205,7 +218,7 @@ function ModalEditarLote({ lote, onGuardar, onCerrar, cargando }: {
               <label className="mb-1 block text-sm font-medium text-gray-700">Sala</label>
               <select value={sala} onChange={e => setSala(e.target.value as Lote['sala'])}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
-                {Object.entries(SALA_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
@@ -215,6 +228,12 @@ function ModalEditarLote({ lote, onGuardar, onCerrar, cargando }: {
                 {Object.entries(ESTADO_LOTE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Nombre del lote (opcional)</label>
+            <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Ej: Cosecha otoño 2026"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -470,11 +489,12 @@ function ModalEditarPlanta({ planta, onGuardar, onCerrar, cargando }: {
 // ─── Vista: Detalle de Lote ──────────────────────────────────────────────────
 
 function VistaLoteDetalle({
-  loteId, todasGeneticas, onVolver,
+  loteId, todasGeneticas, onVolver, salaLabels,
 }: {
   loteId: string
   todasGeneticas: Genetica[]
   onVolver: () => void
+  salaLabels?: Record<string, string>
 }) {
   const [data, setData]                 = useState<LoteDetalle | null>(null)
   const [cargando, setCargando]         = useState(true)
@@ -591,7 +611,7 @@ function VistaLoteDetalle({
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-bold text-gray-900 font-mono">{data.codigo}</h2>
           <BadgeLote estado={data.estado} />
-          <span className="text-sm text-gray-500">{SALA_LABELS[data.sala]}</span>
+          <span className="text-sm text-gray-500">{(salaLabels ?? SALA_LABELS)[data.sala]}</span>
           <span className="text-sm text-gray-400">·</span>
           <span className="text-sm text-gray-500">{new Date(data.fechaInicio).toLocaleDateString('es-AR')}</span>
         </div>
@@ -809,6 +829,24 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
   const [editarLote, setEditar]     = useState<Lote | null>(null)
   const [confirmarElim, setConfirm] = useState<Lote | null>(null)
   const [verDetalle, setVerDetalle] = useState<string | null>(null)
+  const [salaLabels, setSalaLabels] = useState<Record<string, string>>(SALA_LABELS)
+
+  useEffect(() => {
+    async function cargarSalaLabels() {
+      try {
+        const [r1, r2] = await Promise.all([
+          fetch(`${API}/api/configuracion/sala_SALA_1`, { headers: authHeaders() }),
+          fetch(`${API}/api/configuracion/sala_SALA_2`, { headers: authHeaders() }),
+        ])
+        const [d1, d2] = await Promise.all([r1.json(), r2.json()])
+        setSalaLabels({
+          SALA_1: d1?.valor || SALA_LABELS.SALA_1,
+          SALA_2: d2?.valor || SALA_LABELS.SALA_2,
+        })
+      } catch { /* keep defaults */ }
+    }
+    cargarSalaLabels()
+  }, [])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -829,11 +867,12 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
         loteId={verDetalle}
         todasGeneticas={todasGeneticas}
         onVolver={() => { setVerDetalle(null); cargar() }}
+        salaLabels={salaLabels}
       />
     )
   }
 
-  async function crearLote(data: { sala: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) {
+  async function crearLote(data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) {
     setGuardando(true)
     try {
       const r = await fetch(`${API}/api/lotes`, {
@@ -892,7 +931,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
                 : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {s === '' ? 'Todas las salas' : SALA_LABELS[s]}
+            {s === '' ? 'Todas las salas' : (salaLabels[s] ?? SALA_LABELS[s])}
           </button>
         ))}
       </div>
@@ -917,7 +956,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-800">
           {lotes.length} lote{lotes.length !== 1 ? 's' : ''}
-          {salaFiltro ? ` en ${SALA_LABELS[salaFiltro]}` : ''}
+          {salaFiltro ? ` en ${salaLabels[salaFiltro] ?? SALA_LABELS[salaFiltro]}` : ''}
         </h2>
         <button
           onClick={() => setModalNuevo(true)}
@@ -939,7 +978,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
       ) : lotes.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-gray-400">
           <Layers className="h-12 w-12 opacity-30" />
-          <p>No hay lotes{salaFiltro ? ` en ${SALA_LABELS[salaFiltro]}` : ''}.</p>
+          <p>No hay lotes{salaFiltro ? ` en ${salaLabels[salaFiltro] ?? SALA_LABELS[salaFiltro]}` : ''}.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -948,9 +987,10 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
               {/* Header */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-mono text-sm font-bold text-gray-900">{l.codigo}</span>
+                  <span className="font-mono text-sm font-bold text-gray-900">{l.nombre || l.codigo}</span>
+                  {l.nombre && <span className="text-xs text-gray-400 font-mono">{l.codigo}</span>}
                   <BadgeLote estado={l.estado} />
-                  <span className="text-xs text-gray-400">{SALA_LABELS[l.sala]}</span>
+                  <span className="text-xs text-gray-400">{salaLabels[l.sala] ?? SALA_LABELS[l.sala]}</span>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => setEditar(l)}
@@ -1009,6 +1049,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
           onGuardar={crearLote}
           onCerrar={() => setModalNuevo(false)}
           cargando={guardando}
+          salaLabels={salaLabels}
         />
       )}
 
@@ -1018,6 +1059,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
           onGuardar={actualizarLote}
           onCerrar={() => setEditar(null)}
           cargando={guardando}
+          salaLabels={salaLabels}
         />
       )}
 
