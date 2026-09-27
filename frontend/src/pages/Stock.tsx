@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, TrendingUp, TrendingDown, Package,
   Trash2, X, AlertCircle, ChevronDown, Loader2,
-  RefreshCw, Settings, CheckCircle2, FlaskConical, Pencil,
+  RefreshCw, Settings, CheckCircle2, FlaskConical, Pencil, Eye,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { autoImportarMovimientos, ResultadoImportStock } from '@/utils/stock-import'
@@ -24,11 +24,14 @@ interface Movimiento {
   fecha: string
   observaciones: string | null
   genetica: { id: string; nombre: string }
+  lote: { id: string; codigo: string } | null
+  asociado: { id: string; nombre: string; apellido: string } | null
   usuario: { id: string; nombre: string; apellido: string } | null
 }
 
-interface GeneticaOption { id: string; nombre: string }
-interface LoteOption     { id: string; codigo: string }
+interface GeneticaOption  { id: string; nombre: string }
+interface LoteOption      { id: string; codigo: string }
+interface AsociadoOption  { id: string; nombre: string; apellido: string }
 
 interface Subproducto {
   id: string
@@ -179,6 +182,8 @@ function ModalMovimiento({
   const [unidad, setUnidad]           = useState<'g' | 'kg'>('g')
   const [fecha, setFecha]             = useState(() => new Date().toISOString().slice(0, 10))
   const [observaciones, setObs]       = useState('')
+  const [asociadoId, setAsociadoId]   = useState('')
+  const [asociados, setAsociados]     = useState<AsociadoOption[]>([])
   const [guardando, setGuardando]     = useState(false)
   const [error, setError]             = useState('')
   const [alertaNegativo, setAlerta]   = useState<{ stockActual: number; genetica: string } | null>(null)
@@ -201,6 +206,14 @@ function ModalMovimiento({
       .finally(() => setCargLotes(false))
   }, [geneticaId])
 
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/asociados?limit=500`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setAsociados(Array.isArray(d.asociados) ? d.asociados : []))
+      .catch(() => {})
+  }, [])
+
   async function guardar() {
     if (!geneticaId || !cantidad || !fecha) { setError('Completá los campos obligatorios'); return }
     const cantNum = parseFloat(cantidad)
@@ -213,6 +226,7 @@ function ModalMovimiento({
       const { data } = await api.post('/movimientos-stock', {
         geneticaId, loteId: loteId || null,
         tipo, cantidadGramos, fecha, observaciones: observaciones || null,
+        asociadoId: tipo === 'EGRESO' && asociadoId ? asociadoId : null,
       })
       if (data.stockNegativo) {
         const g = geneticas.find(g => g.id === geneticaId)
@@ -330,6 +344,20 @@ function ModalMovimiento({
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones</label>
             <textarea value={observaciones} onChange={e => setObs(e.target.value)} rows={2} placeholder="Motivo, proveedor, etc." className="campo w-full resize-none" />
           </div>
+          {tipo === 'EGRESO' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Asociado <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <select value={asociadoId} onChange={e => setAsociadoId(e.target.value)} className="campo w-full appearance-none pr-8">
+                  <option value="">Sin asociado</option>
+                  {asociados.map(a => <option key={a.id} value={a.id}>{a.apellido}, {a.nombre}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          )}
           {error && (
             <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               <AlertCircle className="w-4 h-4 shrink-0" /> {error}
@@ -341,6 +369,187 @@ function ModalMovimiento({
           <button onClick={guardar} disabled={guardando} className="flex-1 py-2.5 text-sm rounded-xl bg-[#4a7030] text-white font-medium hover:bg-[#3d5e28] disabled:opacity-50 flex items-center justify-center gap-2">
             {guardando ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</> : 'Guardar'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Modal: editar movimiento genética ───────────────────────────────────────
+
+function ModalEditarMovimiento({
+  movimiento,
+  onGuardar,
+  onCerrar,
+}: {
+  movimiento: Movimiento
+  onGuardar: () => void
+  onCerrar: () => void
+}) {
+  const [cantidad, setCantidad]     = useState(String(movimiento.cantidadGramos))
+  const [unidad, setUnidad]         = useState<'g' | 'kg'>('g')
+  const [fecha, setFecha]           = useState(movimiento.fecha.slice(0, 10))
+  const [observaciones, setObs]     = useState(movimiento.observaciones ?? '')
+  const [asociadoId, setAsociadoId] = useState(movimiento.asociado?.id ?? '')
+  const [asociados, setAsociados]   = useState<AsociadoOption[]>([])
+  const [guardando, setGuardando]   = useState(false)
+  const [error, setError]           = useState('')
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('token')
+    fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/asociados?limit=500`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setAsociados(Array.isArray(d.asociados) ? d.asociados : []))
+      .catch(() => {})
+  }, [])
+
+  async function guardar() {
+    const cantNum = parseFloat(cantidad)
+    if (isNaN(cantNum) || cantNum <= 0) { setError('La cantidad debe ser un número positivo'); return }
+    const cantidadGramos = unidad === 'kg' ? Math.round(cantNum * 1000) : Math.round(cantNum)
+
+    setGuardando(true); setError('')
+    try {
+      await api.put(`/movimientos-stock/${movimiento.id}`, {
+        cantidadGramos, fecha, observaciones: observaciones || null,
+        asociadoId: movimiento.tipo === 'EGRESO' && asociadoId ? asociadoId : null,
+      })
+      onGuardar()
+      onCerrar()
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setError(msg ?? 'Error al guardar')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Editar movimiento</h2>
+          <button onClick={onCerrar} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="rounded-lg bg-slate-50 px-4 py-3 flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${movimiento.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
+              {movimiento.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {movimiento.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+            </span>
+            <span className="text-sm font-medium text-slate-700">{movimiento.genetica.nombre}</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Cantidad *</label>
+            <div className="flex gap-2">
+              <input type="number" min="0" step="any" value={cantidad} onChange={e => setCantidad(e.target.value)} className="campo flex-1" />
+              <div className="flex border border-[#e0d8c8] rounded-xl overflow-hidden text-sm">
+                {(['g', 'kg'] as const).map(u => (
+                  <button key={u} onClick={() => setUnidad(u)} className={`px-4 py-2 font-medium transition-colors ${unidad === u ? 'bg-[#4a7030] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{u}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha *</label>
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="campo w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones</label>
+            <textarea value={observaciones} onChange={e => setObs(e.target.value)} rows={2} placeholder="Motivo, proveedor, etc." className="campo w-full resize-none" />
+          </div>
+          {movimiento.tipo === 'EGRESO' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Asociado <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <select value={asociadoId} onChange={e => setAsociadoId(e.target.value)} className="campo w-full appearance-none pr-8">
+                  <option value="">Sin asociado</option>
+                  {asociados.map(a => <option key={a.id} value={a.id}>{a.apellido}, {a.nombre}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+            </div>
+          )}
+        </div>
+        <div className="px-6 pb-5 flex gap-3">
+          <button onClick={onCerrar} className="flex-1 py-2.5 text-sm rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700">Cancelar</button>
+          <button onClick={guardar} disabled={guardando} className="flex-1 py-2.5 text-sm rounded-xl bg-[#4a7030] text-white font-medium hover:bg-[#3d5e28] disabled:opacity-50 flex items-center justify-center gap-2">
+            {guardando ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</> : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Modal: detalle movimiento genética ──────────────────────────────────────
+
+function ModalDetalleMovimiento({ movimiento, onCerrar }: { movimiento: Movimiento; onCerrar: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Detalle del movimiento</h2>
+          <button onClick={onCerrar} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Tipo</p>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${movimiento.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
+                {movimiento.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {movimiento.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Fecha</p>
+              <p className="text-sm text-slate-800">{fmtFecha(movimiento.fecha)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Genética</p>
+              <p className="text-sm font-medium text-slate-800">{movimiento.genetica.nombre}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Cantidad</p>
+              <p className={`text-sm font-semibold ${movimiento.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
+                {movimiento.tipo === 'EGRESO' ? '-' : '+'}{fmtStock(movimiento.cantidadGramos)}
+              </p>
+            </div>
+            {movimiento.lote && (
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-0.5">Lote</p>
+                <p className="text-sm text-slate-800 font-mono">{movimiento.lote.codigo}</p>
+              </div>
+            )}
+            {movimiento.asociado && (
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-0.5">Asociado</p>
+                <p className="text-sm text-slate-800">{movimiento.asociado.apellido}, {movimiento.asociado.nombre}</p>
+              </div>
+            )}
+          </div>
+          {movimiento.observaciones && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Observaciones</p>
+              <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{movimiento.observaciones}</p>
+            </div>
+          )}
+          {movimiento.usuario && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Registrado por</p>
+              <p className="text-sm text-slate-600">{movimiento.usuario.nombre} {movimiento.usuario.apellido}</p>
+            </div>
+          )}
+        </div>
+        <div className="px-6 pb-5">
+          <button onClick={onCerrar} className="w-full py-2.5 text-sm rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700">Cerrar</button>
         </div>
       </div>
     </div>
@@ -629,6 +838,8 @@ export default function Stock() {
   const [geneticas, setGeneticas]     = useState<GeneticaOption[]>([])
   const [cargando, setCargando]       = useState(true)
   const [modal, setModal]             = useState<{ abierto: boolean; geneticaId?: string }>({ abierto: false })
+  const [editarMov, setEditarMov]     = useState<Movimiento | null>(null)
+  const [detalleMov, setDetalleMov]   = useState<Movimiento | null>(null)
   const [confirmarElim, setConfirmarElim] = useState<Movimiento | null>(null)
   const [eliminando, setEliminando]   = useState(false)
   const [errorElim, setErrorElim]     = useState('')
@@ -981,12 +1192,12 @@ export default function Stock() {
                     <th className="px-4 py-3 text-left">Tipo</th>
                     <th className="px-4 py-3 text-right">Cantidad</th>
                     <th className="px-4 py-3 text-left hidden md:table-cell">Observaciones</th>
-                    <th className="px-4 py-3 w-10" />
+                    <th className="px-4 py-3 w-24" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f5f2ec]">
                   {movimientos.map(m => (
-                    <tr key={m.id} className="hover:bg-[#faf8f3] group">
+                    <tr key={m.id} className="hover:bg-[#faf8f3] group cursor-pointer" onClick={() => setDetalleMov(m)}>
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{fmtFecha(m.fecha)}</td>
                       <td className="px-4 py-3 font-medium text-slate-800 hidden sm:table-cell">{m.genetica.nombre}</td>
                       <td className="px-4 py-3">
@@ -994,15 +1205,26 @@ export default function Stock() {
                           {m.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                           {m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
                         </span>
+                        {m.asociado && (
+                          <span className="ml-1 text-xs text-slate-400" title={`${m.asociado.apellido}, ${m.asociado.nombre}`}>· {m.asociado.apellido}</span>
+                        )}
                       </td>
                       <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
                         {m.tipo === 'EGRESO' ? '-' : '+'}{fmtStock(m.cantidadGramos)}
                       </td>
                       <td className="px-4 py-3 text-slate-500 max-w-[200px] truncate hidden md:table-cell">{m.observaciones ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => { setConfirmarElim(m); setErrorElim('') }} className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
+                          <button onClick={() => setDetalleMov(m)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditarMov(m)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#4a7030] hover:bg-[#edf5e0]">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => { setConfirmarElim(m); setErrorElim('') }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1228,6 +1450,23 @@ export default function Stock() {
           geneticaPreseleccionada={modal.geneticaId}
           onGuardar={() => { cargarMovimientos(); cargarResumen() }}
           onCerrar={() => setModal({ abierto: false })}
+        />
+      )}
+
+      {/* ─── Modal editar movimiento genética ─── */}
+      {editarMov && (
+        <ModalEditarMovimiento
+          movimiento={editarMov}
+          onGuardar={() => { cargarMovimientos(); cargarResumen() }}
+          onCerrar={() => setEditarMov(null)}
+        />
+      )}
+
+      {/* ─── Modal detalle movimiento genética ─── */}
+      {detalleMov && (
+        <ModalDetalleMovimiento
+          movimiento={detalleMov}
+          onCerrar={() => setDetalleMov(null)}
         />
       )}
 

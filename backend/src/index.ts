@@ -9,6 +9,7 @@ import ingresosRoutes from './routes/ingresos'
 import asociadosRoutes from './routes/asociados'
 import geneticasRoutes from './routes/geneticas'
 import lotesRoutes from './routes/lotes'
+import archivosLotesRoutes from './routes/archivos-lotes'
 import plantasRoutes from './routes/plantas'
 import reportesRoutes from './routes/reportes'
 import configuracionRoutes from './routes/configuracion'
@@ -50,6 +51,7 @@ app.use('/api/ingresos', ingresosRoutes)
 app.use('/api/asociados', asociadosRoutes)
 app.use('/api/geneticas', geneticasRoutes)
 app.use('/api/lotes', lotesRoutes)
+app.use('/api/lotes', archivosLotesRoutes)
 app.use('/api/plantas', plantasRoutes)
 app.use('/api/reportes', reportesRoutes)
 app.use('/api/configuracion', configuracionRoutes)

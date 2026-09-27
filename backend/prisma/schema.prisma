@@ -270,6 +270,8 @@ model MovimientoStock {
   genetica       Genetica       @relation(fields: [geneticaId], references: [id])
   loteId         String?
   lote           Lote?          @relation(fields: [loteId], references: [id], onDelete: SetNull)
+  asociadoId     String?
+  asociado       Asociado?      @relation(fields: [asociadoId], references: [id], onDelete: SetNull)
   tipo           TipoMovimiento
   cantidadGramos Int
   fecha          DateTime
@@ -302,6 +304,7 @@ model Lote {
   loteGeneticas          LoteGenetica[]
   movimientos            MovimientoStock[]
   movimientosSubproducto MovimientoSubproducto[]
+  archivos               ArchivoLote[]
 
   @@index([estado])
   @@map("lotes")
@@ -367,9 +370,10 @@ model Asociado {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  seguimientos SeguimientoTerapeutico[]
-  pagos        PagoAsociado[]
-  cuotas       CuotaMes[]
+  seguimientos     SeguimientoTerapeutico[]
+  pagos            PagoAsociado[]
+  cuotas           CuotaMes[]
+  movimientosStock MovimientoStock[]
 
   @@index([dni])
   @@index([estado])
@@ -436,6 +440,22 @@ model PagoAsociado {
 
   @@index([asociadoId])
   @@map("pagos_asociados")
+}
+
+// ─── Archivos de lotes ─────────────────────────────────────────────────────
+
+model ArchivoLote {
+  id        String   @id @default(cuid())
+  loteId    String
+  lote      Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  nombre    String
+  tipo      String
+  tamanio   Int
+  contenido Bytes
+  creadoEn  DateTime @default(now())
+
+  @@index([loteId])
+  @@map("archivos_lotes")
 }
 
 // ─── Subproductos ──────────────────────────────────────────────────────────
