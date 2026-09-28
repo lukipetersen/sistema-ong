@@ -31,11 +31,11 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar abierto={sidebarAbierto} onCerrar={() => setSidebarAbierto(false)} />
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-[#f7f5ef]">
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-[#F5F4F2]">
 
         {/* Topbar */}
         <header
-          className="sticky top-0 z-20 shrink-0 bg-[#faf8f3] border-b border-[#ede8dc] flex items-center justify-between px-4 lg:px-6"
+          className="sticky top-0 z-20 shrink-0 bg-white border-b border-[#E8E6E0] flex items-center justify-between px-4 lg:px-6"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             height: 'calc(3.5rem + env(safe-area-inset-top))',
@@ -44,7 +44,7 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarAbierto(true)}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl text-[#7a6840] hover:bg-[#f0ebe0] active:bg-[#e8e0d0] transition-colors -ml-1"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl text-[#7a6840] hover:bg-[#F0EEEA] active:bg-[#E8E6E0] transition-colors -ml-1"
             >
               <Menu className="w-5 h-5" />
             </button>

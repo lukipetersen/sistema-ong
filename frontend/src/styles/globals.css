@@ -4,13 +4,13 @@
 
 @layer base {
   html { @apply h-full; }
-  body { @apply h-full bg-[#f7f5ef] text-[#1a1814] font-sans antialiased; }
+  body { @apply h-full bg-[#F5F4F2] text-[#1a1814] font-sans antialiased; }
   #root { @apply h-full; }
 
   ::-webkit-scrollbar        { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track  { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb  { @apply bg-[#ddd5c0] rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-[#ccc0a8]; }
+  ::-webkit-scrollbar-thumb  { @apply bg-[#D8D5CF] rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-[#C4C0B8]; }
 
   * { outline: none; }
   *:focus-visible {
@@ -25,18 +25,18 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
            transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 select-none;
   }
-  .btn-primario   { @apply btn bg-[#1a1814] text-[#e8d9b0] hover:bg-[#26221a] active:scale-[0.98]; }
+  .btn-primario   { @apply btn bg-[#1a1814] text-[#FEF8DC] hover:bg-[#26221a] active:scale-[0.98]; }
   .btn-acento     { @apply btn bg-[#c9b97a] text-[#1a1814] hover:bg-[#b8a862] active:scale-[0.98]; }
-  .btn-secundario { @apply btn border border-[#e0d8c8] bg-white text-[#3a3220] hover:bg-[#faf7f0] active:scale-[0.98]; }
-  .btn-fantasma   { @apply btn text-[#6a5e40] hover:bg-[#f0ebe0] hover:text-[#1a1814] active:scale-[0.98]; }
+  .btn-secundario { @apply btn border border-[#E0DEDA] bg-white text-[#3a3220] hover:bg-[#F8F7F5] active:scale-[0.98]; }
+  .btn-fantasma   { @apply btn text-[#6a5e40] hover:bg-[#F0EEEA] hover:text-[#1a1814] active:scale-[0.98]; }
   .btn-peligro    { @apply btn bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]; }
 
   /* ── Formulario ── */
   .campo {
-    @apply block w-full rounded-lg border border-[#e0d8c8] bg-white px-3 py-2.5 text-sm
-           text-[#1a1814] placeholder:text-[#b0a080] shadow-sm
+    @apply block w-full rounded-lg border border-[#E0DEDA] bg-white px-3 py-2.5 text-sm
+           text-[#1a1814] placeholder:text-[#B0ADA6] shadow-sm
            transition-colors duration-150
-           disabled:bg-[#f7f5ef] disabled:text-[#9a8f78] disabled:cursor-not-allowed;
+           disabled:bg-[#F5F4F2] disabled:text-[#9a9590] disabled:cursor-not-allowed;
   }
   .campo:focus { border-color: #c9b97a; box-shadow: 0 0 0 1px #c9b97a; }
   .campo-error { @apply border-red-400; }
@@ -46,14 +46,14 @@
   .msg-error { @apply text-xs text-red-600 mt-1.5 flex items-center gap-1; }
 
   /* ── Tarjetas ── */
-  .tarjeta         { @apply rounded-xl border border-[#ede8dc] bg-white shadow-tarjeta; }
-  .tarjeta-elevada { @apply rounded-xl border border-[#ede8dc] bg-white shadow-elevada; }
+  .tarjeta         { @apply rounded-xl border border-[#E8E6E0] bg-white shadow-tarjeta; }
+  .tarjeta-elevada { @apply rounded-xl border border-[#E8E6E0] bg-white shadow-elevada; }
 
   /* ── Badges ── */
   .badge        { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
   .badge-verde  { @apply badge bg-[#edf5e0] text-[#4a7030]; }
   .badge-rojo   { @apply badge bg-red-50    text-red-700; }
-  .badge-gris   { @apply badge bg-[#f0ebe0] text-[#7a6840]; }
+  .badge-gris   { @apply badge bg-[#F0EEEA] text-[#7a6840]; }
   .badge-ambar  { @apply badge bg-[#fdf6e0] text-[#8a6820]; }
   .badge-azul   { @apply badge bg-blue-50   text-blue-700; }
 }
