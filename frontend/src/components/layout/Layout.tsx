@@ -31,11 +31,11 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar abierto={sidebarAbierto} onCerrar={() => setSidebarAbierto(false)} />
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-[#f7f5ef]">
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-[#f2faf0]">
 
         {/* Topbar */}
         <header
-          className="sticky top-0 z-20 shrink-0 bg-[#faf8f3] border-b border-[#ede8dc] flex items-center justify-between px-4 lg:px-6"
+          className="sticky top-0 z-20 shrink-0 bg-[#f8fdf6] border-b border-[#cce8c4] flex items-center justify-between px-4 lg:px-6"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             height: 'calc(3.5rem + env(safe-area-inset-top))',
@@ -45,21 +45,21 @@ export default function Layout() {
             {/* Botón menú mobile — abre drawer para Configuración y logout */}
             <button
               onClick={() => setSidebarAbierto(true)}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl text-[#7a6840] hover:bg-[#f0ebe0] active:bg-[#e8e0d0] transition-colors -ml-1"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl text-[#3d7030] hover:bg-[#e8f5e0] active:bg-[#d8f0cc] transition-colors -ml-1"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-[15px] font-semibold text-[#1a1814] tracking-tight">{titulo}</h1>
+            <h1 className="text-[15px] font-semibold text-[#1a2e18] tracking-tight">{titulo}</h1>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[rgba(200,180,130,0.12)] ring-1 ring-[rgba(200,180,130,0.2)] flex items-center justify-center">
-                <span className="text-[#c9b97a] text-xs font-semibold">
+              <div className="w-8 h-8 rounded-full bg-[rgba(60,180,40,0.12)] ring-1 ring-[rgba(60,180,40,0.25)] flex items-center justify-center">
+                <span className="text-[#3d9138] text-xs font-semibold">
                   {usuario.nombre[0]}{usuario.apellido[0]}
                 </span>
               </div>
-              <span className="text-sm text-[#3a3220] font-medium hidden sm:block">
+              <span className="text-sm text-[#1e3a1c] font-medium hidden sm:block">
                 {usuario.nombre}
               </span>
             </div>

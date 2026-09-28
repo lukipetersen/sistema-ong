@@ -38,41 +38,42 @@ export default function Login() {
     <div className="h-screen flex overflow-hidden">
 
       {/* ── Panel izquierdo (marca) ── */}
-      <div className="hidden lg:flex lg:w-3/5 relative bg-black flex-col justify-between p-14 overflow-hidden">
+      <div className="hidden lg:flex lg:w-3/5 relative bg-[#0d1a0d] flex-col justify-between p-14 overflow-hidden">
 
         {/* Patrón de puntos */}
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
-            backgroundImage: 'radial-gradient(circle, #f0deb0 1.5px, transparent 1.5px)',
+            backgroundImage: 'radial-gradient(circle, #b8f0a0 1.5px, transparent 1.5px)',
             backgroundSize: '28px 28px',
           }}
         />
 
-        {/* Glow ambar sutil */}
-        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl -translate-x-1/2 translate-y-1/2" />
-        <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-amber-400/5 blur-3xl" />
+        {/* Glow verde sutil */}
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-green-500/10 blur-3xl -translate-x-1/2 translate-y-1/2" />
+        <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-green-400/5 blur-3xl" />
 
         {/* Logo */}
         <div className="relative flex items-center gap-3">
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt="Flor Vida Club"
-            className="w-10 h-10 rounded-xl object-contain"
+            className="w-10 h-10 rounded-xl object-contain bg-[#FEF8DC] p-0.5"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
-          <span className="text-amber-100/80 font-medium text-sm tracking-widest uppercase">
+          <span className="text-green-100/80 font-medium text-sm tracking-widest uppercase">
             Flor Vida Club
           </span>
         </div>
 
-        {/* Texto central */}
-        <div className="relative space-y-6">
-          <img src="/logo.jpg" alt="Flor Vida" className="w-20 h-20 rounded-2xl object-cover shadow-lg" />
-          <h1 className="text-6xl font-black text-amber-100 leading-none tracking-tight">
-            FLOR<br />VIDA
-          </h1>
-          <div className="w-12 h-1 bg-amber-400/60 rounded-full" />
+        {/* Logo central grande */}
+        <div className="relative flex flex-col items-start space-y-6">
+          <img
+            src="/logo.png"
+            alt="Flor Vida"
+            className="w-36 h-36 object-contain drop-shadow-2xl"
+          />
+          <div className="w-12 h-1 bg-green-400/60 rounded-full" />
 
           <div className="flex gap-8 pt-2">
             {[
@@ -81,8 +82,8 @@ export default function Login() {
               { valor: 'Reportes',     desc: 'exportables PDF/Excel' },
             ].map((s) => (
               <div key={s.valor} className="space-y-0.5">
-                <p className="text-amber-400/80 text-xs font-bold uppercase tracking-widest">{s.valor}</p>
-                <p className="text-amber-100/30 text-xs">{s.desc}</p>
+                <p className="text-green-400/80 text-xs font-bold uppercase tracking-widest">{s.valor}</p>
+                <p className="text-green-100/30 text-xs">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -90,7 +91,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="relative">
-          <p className="text-amber-100/20 text-xs tracking-wider uppercase">
+          <p className="text-green-100/20 text-xs tracking-wider uppercase">
             Acceso exclusivo · equipo interno
           </p>
         </div>
@@ -100,27 +101,27 @@ export default function Login() {
       <div className="flex-1 flex flex-col lg:items-center lg:justify-center bg-white overflow-y-auto">
 
         {/* Header mobile */}
-        <div className="lg:hidden relative bg-black px-8 pt-12 pb-10 overflow-hidden">
+        <div className="lg:hidden relative bg-[#0d1a0d] px-8 pt-12 pb-10 overflow-hidden">
           <div
             className="absolute inset-0 opacity-[0.06]"
             style={{
-              backgroundImage: 'radial-gradient(circle, #f0deb0 1.5px, transparent 1.5px)',
+              backgroundImage: 'radial-gradient(circle, #b8f0a0 1.5px, transparent 1.5px)',
               backgroundSize: '24px 24px',
             }}
           />
-          <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full bg-green-500/10 blur-3xl" />
           <div className="relative flex items-center gap-4">
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="Flor Vida"
-              className="w-14 h-14 rounded-2xl object-cover shadow-lg"
+              className="w-16 h-16 object-contain"
             />
             <div>
-              <p className="text-amber-100/50 text-xs tracking-widest uppercase mb-0.5">Acceso interno</p>
-              <h1 className="text-2xl font-black text-amber-100 tracking-tight leading-none">FLOR VIDA</h1>
+              <p className="text-green-100/50 text-xs tracking-widest uppercase mb-0.5">Acceso interno</p>
+              <h1 className="text-2xl font-black text-green-100 tracking-tight leading-none">FLOR VIDA</h1>
             </div>
           </div>
-          <div className="relative w-8 h-0.5 bg-amber-400/50 rounded-full mt-5" />
+          <div className="relative w-8 h-0.5 bg-green-400/50 rounded-full mt-5" />
         </div>
 
         <div className="w-full max-w-sm p-8 lg:p-0 mx-auto">
