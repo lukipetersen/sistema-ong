@@ -15,11 +15,10 @@ function puedeIngreso(req: Request): boolean {
 // ─── GET /api/dispensario ────────────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, loteId, tipo, mes, asociadoId, page = '1', limit = '50' } = req.query as Record<string, string>
+    const { geneticaId, tipo, mes, asociadoId, page = '1', limit = '50' } = req.query as Record<string, string>
 
     const where: Record<string, unknown> = { seccion: 'DISPENSARIO' }
     if (geneticaId)  where.geneticaId  = geneticaId
-    if (loteId)      where.loteId      = loteId
     if (asociadoId)  where.asociadoId  = asociadoId
     if (tipo && ['INGRESO', 'EGRESO'].includes(tipo)) where.tipo = tipo
     if (mes) {
@@ -36,7 +35,6 @@ router.get('/', async (req: Request, res: Response) => {
         take: Number(limit),
         include: {
           genetica:  { select: { id: true, nombre: true } },
-          lote:      { select: { id: true, codigo: true, nombre: true } },
           usuario:   { select: { id: true, nombre: true, apellido: true } },
           asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
@@ -50,13 +48,17 @@ router.get('/', async (req: Request, res: Response) => {
   }
 })
 
-// ─── GET /api/dispensario/resumen ────────────────────────────────────────────
+// ─── GET /api/dispensario/resumen ─────────────────────────────────────────────
+// Devuelve stock total y stock dispensario por genética
 router.get('/resumen', async (_req: Request, res: Response) => {
   try {
     const geneticas = await prisma.genetica.findMany({
       orderBy: { nombre: 'asc' },
       select: {
-        id: true, nombre: true, stockGramos: true,
+        id: true,
+        nombre: true,
+        stockGramos: true,
+        stockGramosDispensario: true,
         movimientos: {
           where: { seccion: 'DISPENSARIO' },
           orderBy: { fecha: 'desc' },
@@ -67,10 +69,11 @@ router.get('/resumen', async (_req: Request, res: Response) => {
     })
 
     res.json(geneticas.map(g => ({
-      id: g.id,
-      nombre: g.nombre,
-      stockGramos: g.stockGramos,
-      ultimoMov: g.movimientos[0] ?? null,
+      id:                    g.id,
+      nombre:                g.nombre,
+      stockGramos:           g.stockGramos,
+      stockGramosDispensario: g.stockGramosDispensario,
+      ultimoMov:             g.movimientos[0] ?? null,
     })))
   } catch {
     res.status(500).json({ error: 'Error al obtener resumen de dispensario' })
@@ -78,9 +81,11 @@ router.get('/resumen', async (_req: Request, res: Response) => {
 })
 
 // ─── POST /api/dispensario ───────────────────────────────────────────────────
+// INGRESO = transferencia desde stock total → baja stockGramos, sube stockGramosDispensario
+// EGRESO  = dispensación → baja stockGramosDispensario únicamente
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
+    const { geneticaId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
 
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
@@ -88,31 +93,35 @@ router.post('/', async (req: Request, res: Response) => {
     if (!fecha)                                return res.status(400).json({ error: 'Falta la fecha' })
 
     if (tipo === 'INGRESO' && !puedeIngreso(req)) {
-      return res.status(403).json({ error: 'No tenés permiso para registrar ingresos en el dispensario.' })
+      return res.status(403).json({ error: 'No tenés permiso para trasladar stock al dispensario.' })
     }
 
     const gramos    = Math.round(Number(cantidadGramos))
-    const delta     = tipo === 'INGRESO' ? gramos : -gramos
     const usuarioId = req.usuarioId ?? null
 
     const [movimiento, stockActual] = await prisma.$transaction(async (tx) => {
-      const genetica = await tx.genetica.update({
-        where: { id: geneticaId },
-        data:  { stockGramos: { increment: delta } },
-      })
+      let genetica
 
-      if (loteId) {
-        await tx.loteGenetica.upsert({
-          where: { loteId_geneticaId: { loteId, geneticaId } },
-          update: { stockGramos: { increment: delta } },
-          create: { loteId, geneticaId, stockGramos: delta },
+      if (tipo === 'INGRESO') {
+        // Traslado: baja del stock total, sube en dispensario
+        genetica = await tx.genetica.update({
+          where: { id: geneticaId },
+          data: {
+            stockGramos:            { decrement: gramos },
+            stockGramosDispensario: { increment: gramos },
+          },
+        })
+      } else {
+        // Egreso: solo baja del dispensario
+        genetica = await tx.genetica.update({
+          where: { id: geneticaId },
+          data: { stockGramosDispensario: { decrement: gramos } },
         })
       }
 
       const mov = await tx.movimientoStock.create({
         data: {
           geneticaId,
-          loteId:     loteId     || null,
           asociadoId: asociadoId || null,
           tipo:       tipo as TipoMovimiento,
           seccion:    'DISPENSARIO',
@@ -122,16 +131,19 @@ router.post('/', async (req: Request, res: Response) => {
           usuarioId,
         },
         include: {
-          genetica:  { select: { id: true, nombre: true, stockGramos: true } },
-          lote:      { select: { id: true, codigo: true, nombre: true } },
+          genetica:  { select: { id: true, nombre: true, stockGramos: true, stockGramosDispensario: true } },
           usuario:   { select: { id: true, nombre: true, apellido: true } },
           asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
       })
-      return [mov, genetica.stockGramos]
+      return [mov, genetica.stockGramosDispensario]
     })
 
-    res.status(201).json({ ...movimiento, stockNegativo: stockActual < 0, stockActual })
+    res.status(201).json({
+      ...movimiento,
+      stockNegativo: stockActual < 0,
+      stockDispensario: stockActual,
+    })
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al crear movimiento' })
   }
@@ -144,40 +156,44 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Solo los administradores pueden editar movimientos.' })
     }
 
-    const { cantidadGramos, fecha, observaciones, loteId, asociadoId } = req.body
+    const { cantidadGramos, fecha, observaciones, asociadoId } = req.body
     const existing = await prisma.movimientoStock.findUnique({ where: { id: req.params.id } })
     if (!existing) return res.status(404).json({ error: 'Movimiento no encontrado' })
     if (existing.seccion !== 'DISPENSARIO') return res.status(400).json({ error: 'Este movimiento no es de dispensario' })
 
     const gramosNuevos = cantidadGramos ? Math.round(Number(cantidadGramos)) : existing.cantidadGramos
-    const deltaViejo   = existing.tipo === 'INGRESO' ? existing.cantidadGramos : -existing.cantidadGramos
-    const deltaNuevo   = existing.tipo === 'INGRESO' ? gramosNuevos : -gramosNuevos
-    const diferencia   = deltaNuevo - deltaViejo
+    const diferencia   = gramosNuevos - existing.cantidadGramos
 
     const [movimiento] = await prisma.$transaction(async (tx) => {
       if (diferencia !== 0) {
-        await tx.genetica.update({ where: { id: existing.geneticaId }, data: { stockGramos: { increment: diferencia } } })
-        const lId = loteId ?? existing.loteId
-        if (lId) {
-          await tx.loteGenetica.upsert({
-            where: { loteId_geneticaId: { loteId: lId, geneticaId: existing.geneticaId } },
-            update: { stockGramos: { increment: diferencia } },
-            create: { loteId: lId, geneticaId: existing.geneticaId, stockGramos: diferencia },
+        if (existing.tipo === 'INGRESO') {
+          // Traslado: ajuste en ambas columnas
+          await tx.genetica.update({
+            where: { id: existing.geneticaId },
+            data: {
+              stockGramos:            { decrement: diferencia },
+              stockGramosDispensario: { increment: diferencia },
+            },
+          })
+        } else {
+          // Egreso: solo ajuste en dispensario
+          await tx.genetica.update({
+            where: { id: existing.geneticaId },
+            data: { stockGramosDispensario: { decrement: diferencia } },
           })
         }
       }
+
       const mov = await tx.movimientoStock.update({
         where: { id: req.params.id },
         data: {
           cantidadGramos: gramosNuevos,
           fecha:          fecha ? new Date(fecha) : existing.fecha,
           observaciones:  observaciones !== undefined ? (observaciones || null) : existing.observaciones,
-          loteId:         loteId !== undefined ? (loteId || null) : existing.loteId,
           asociadoId:     asociadoId !== undefined ? (asociadoId || null) : existing.asociadoId,
         },
         include: {
           genetica:  { select: { id: true, nombre: true } },
-          lote:      { select: { id: true, codigo: true, nombre: true } },
           usuario:   { select: { id: true, nombre: true, apellido: true } },
           asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
@@ -202,18 +218,24 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (!existing) return res.status(404).json({ error: 'Movimiento no encontrado' })
     if (existing.seccion !== 'DISPENSARIO') return res.status(400).json({ error: 'Este movimiento no es de dispensario' })
 
-    const delta = existing.tipo === 'INGRESO' ? -existing.cantidadGramos : existing.cantidadGramos
-
     await prisma.$transaction(async (tx) => {
-      const genetica = await tx.genetica.update({ where: { id: existing.geneticaId }, data: { stockGramos: { increment: delta } } })
-      if (existing.loteId) {
-        await tx.loteGenetica.update({
-          where: { loteId_geneticaId: { loteId: existing.loteId, geneticaId: existing.geneticaId } },
-          data: { stockGramos: { increment: delta } },
-        }).catch(() => {})
+      if (existing.tipo === 'INGRESO') {
+        // Revertir traslado: vuelven al stock total
+        await tx.genetica.update({
+          where: { id: existing.geneticaId },
+          data: {
+            stockGramos:            { increment: existing.cantidadGramos },
+            stockGramosDispensario: { decrement: existing.cantidadGramos },
+          },
+        })
+      } else {
+        // Revertir egreso: vuelven al dispensario
+        await tx.genetica.update({
+          where: { id: existing.geneticaId },
+          data: { stockGramosDispensario: { increment: existing.cantidadGramos } },
+        })
       }
       await tx.movimientoStock.delete({ where: { id: req.params.id } })
-      return genetica
     })
 
     res.json({ ok: true })

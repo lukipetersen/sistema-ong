@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, AlertCircle, Loader2, Pencil, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, X, AlertCircle, Loader2, Pencil, Eye, Trash2, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-interface Genetica { id: string; nombre: string; stockGramos: number }
+interface Genetica {
+  id: string
+  nombre: string
+  stockGramos: number
+  stockGramosDispensario: number
+}
+
 interface Asociado { id: string; nombre: string; apellido: string }
-interface Lote     { id: string; codigo: string; nombre: string }
 
 interface Movimiento {
   id: string
@@ -16,9 +21,12 @@ interface Movimiento {
   fecha: string
   observaciones: string | null
   genetica: { id: string; nombre: string }
-  lote: { id: string; codigo: string; nombre: string } | null
   asociado: { id: string; nombre: string; apellido: string } | null
   usuario: { id: string; nombre: string; apellido: string } | null
+}
+
+function fmt(g: number) {
+  return g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${g} g`
 }
 
 // ─── Modal Movimiento ─────────────────────────────────────────────────────────
@@ -43,8 +51,6 @@ function ModalMovimiento({
   const [fecha,       setFecha]       = useState(editar ? editar.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10))
   const [obs,         setObs]         = useState(editar?.observaciones ?? '')
   const [asociadoId,  setAsociadoId]  = useState(editar?.asociado?.id ?? '')
-  const [loteId,      setLoteId]      = useState(editar?.lote?.id ?? '')
-  const [lotes,       setLotes]       = useState<Lote[]>([])
   const [asociados,   setAsociados]   = useState<Asociado[]>([])
   const [guardando,   setGuardando]   = useState(false)
   const [error,       setError]       = useState('')
@@ -56,10 +62,7 @@ function ModalMovimiento({
     }).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (!geneticaId) { setLotes([]); return }
-    api.get<{ lotes: Lote[] }>(`/lotes?geneticaId=${geneticaId}`).then(r => setLotes(r.data.lotes ?? [])).catch(() => {})
-  }, [geneticaId])
+  const gen = geneticas.find(g => g.id === geneticaId)
 
   async function guardar() {
     if (!geneticaId) { setError('Seleccioná una genética'); return }
@@ -69,7 +72,7 @@ function ModalMovimiento({
     const gramos = unidad === 'kg' ? Math.round(Number(cantidad) * 1000) : Math.round(Number(cantidad))
     setGuardando(true); setError('')
     try {
-      const body = { geneticaId, tipo, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: asociadoId || null, loteId: loteId || null }
+      const body = { geneticaId, tipo, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: asociadoId || null }
       if (editar) {
         await api.put(`/dispensario/${editar.id}`, body)
       } else {
@@ -84,7 +87,10 @@ function ModalMovimiento({
     }
   }
 
-  const stockGenetica = geneticas.find(g => g.id === geneticaId)?.stockGramos ?? null
+  const tipoOpciones: { value: 'INGRESO' | 'EGRESO'; label: string; desc: string }[] = [
+    ...(puedeIngreso ? [{ value: 'INGRESO' as const, label: 'Traslado desde Stock Total', desc: 'Mueve kg del inventario al dispensario' }] : []),
+    { value: 'EGRESO' as const, label: 'Egreso / Dispensación', desc: 'Entrega a un asociado o consumo' },
+  ]
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -97,53 +103,61 @@ function ModalMovimiento({
         <div className="px-6 py-5 space-y-4">
           {/* Tipo */}
           {!editar && (
-            <div className="flex gap-3">
-              {(['EGRESO', ...(puedeIngreso ? ['INGRESO'] : [])] as ('INGRESO' | 'EGRESO')[]).map(t => (
+            <div className="space-y-2">
+              {tipoOpciones.map(op => (
                 <button
-                  key={t}
-                  onClick={() => setTipo(t)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
-                    tipo === t
-                      ? t === 'EGRESO' ? 'border-red-500 bg-red-50 text-red-700' : 'border-[#4a7030] bg-[#edf5e0] text-[#4a7030]'
+                  key={op.value}
+                  onClick={() => setTipo(op.value)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                    tipo === op.value
+                      ? op.value === 'INGRESO'
+                        ? 'border-[#c9b97a] bg-[#fdf9ee] text-[#1a1814]'
+                        : 'border-red-400 bg-red-50 text-red-800'
                       : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                   }`}
                 >
-                  {t === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+                  <p className="text-sm font-semibold">{op.label}</p>
+                  <p className="text-xs opacity-70 mt-0.5">{op.desc}</p>
                 </button>
               ))}
             </div>
           )}
           {editar && (
-            <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${editar.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-700'}`}>
-              {editar.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+            <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${editar.tipo === 'INGRESO' ? 'bg-[#fdf9ee] text-[#7a6840]' : 'bg-red-50 text-red-700'}`}>
+              {editar.tipo === 'INGRESO' ? 'Traslado desde Stock Total' : 'Egreso / Dispensación'}
             </div>
           )}
 
           {/* Genética */}
-          {!editar && (
+          {!editar ? (
             <div>
               <label className="etiqueta">Genética *</label>
-              <select value={geneticaId} onChange={e => { setGeneticaId(e.target.value); setLoteId('') }} className="campo">
+              <select value={geneticaId} onChange={e => setGeneticaId(e.target.value)} className="campo">
                 <option value="">Seleccioná una genética</option>
                 {geneticas.map(g => (
-                  <option key={g.id} value={g.id}>{g.nombre} ({g.stockGramos >= 1000 ? `${(g.stockGramos / 1000).toFixed(2)} kg` : `${g.stockGramos} g`})</option>
+                  <option key={g.id} value={g.id}>{g.nombre}</option>
                 ))}
               </select>
             </div>
-          )}
-          {editar && (
+          ) : (
             <div>
               <label className="etiqueta">Genética</label>
               <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
             </div>
           )}
 
-          {stockGenetica !== null && (
-            <p className="text-xs text-slate-500">
-              Stock actual: <span className={`font-semibold ${stockGenetica <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>
-                {stockGenetica >= 1000 ? `${(stockGenetica / 1000).toFixed(2)} kg` : `${stockGenetica} g`}
-              </span>
-            </p>
+          {/* Info de stock según tipo */}
+          {gen && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
+                <p className="text-xs text-slate-500 mb-0.5">Stock Total</p>
+                <p className={`text-sm font-bold ${gen.stockGramos <= 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(gen.stockGramos)}</p>
+              </div>
+              <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
+                <p className="text-xs text-slate-500 mb-0.5">En Dispensario</p>
+                <p className={`text-sm font-bold ${gen.stockGramosDispensario <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>{fmt(gen.stockGramosDispensario)}</p>
+              </div>
+            </div>
           )}
 
           {/* Cantidad */}
@@ -173,25 +187,14 @@ function ModalMovimiento({
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="campo" />
           </div>
 
-          {/* Asociado */}
+          {/* Asociado (más relevante para egresos) */}
           <div>
-            <label className="etiqueta">Asociado</label>
+            <label className="etiqueta">Asociado {tipo === 'EGRESO' ? '(recomendado)' : '(opcional)'}</label>
             <select value={asociadoId} onChange={e => setAsociadoId(e.target.value)} className="campo">
               <option value="">Sin asociado</option>
               {asociados.map(a => <option key={a.id} value={a.id}>{a.nombre} {a.apellido}</option>)}
             </select>
           </div>
-
-          {/* Lote */}
-          {lotes.length > 0 && (
-            <div>
-              <label className="etiqueta">Lote</label>
-              <select value={loteId} onChange={e => setLoteId(e.target.value)} className="campo">
-                <option value="">Sin lote</option>
-                {lotes.map(l => <option key={l.id} value={l.id}>{l.codigo} {l.nombre ? `— ${l.nombre}` : ''}</option>)}
-              </select>
-            </div>
-          )}
 
           {/* Observaciones */}
           <div>
@@ -224,9 +227,6 @@ function ModalMovimiento({
 // ─── Modal Detalle ────────────────────────────────────────────────────────────
 
 function ModalDetalle({ mov, onCerrar }: { mov: Movimiento; onCerrar: () => void }) {
-  const gramos = mov.cantidadGramos
-  const display = gramos >= 1000 ? `${(gramos / 1000).toFixed(3)} kg` : `${gramos} g`
-
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
@@ -235,12 +235,16 @@ function ModalDetalle({ mov, onCerrar }: { mov: Movimiento; onCerrar: () => void
           <button onClick={onCerrar} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-4 h-4" /></button>
         </div>
         <div className="px-6 py-5 space-y-3 text-sm">
-          <div className="flex justify-between"><span className="text-slate-500">Tipo</span><span className={`font-semibold ${mov.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>{mov.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}</span></div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Tipo</span>
+            <span className={`font-semibold ${mov.tipo === 'INGRESO' ? 'text-[#7a6840]' : 'text-red-600'}`}>
+              {mov.tipo === 'INGRESO' ? 'Traslado desde Stock Total' : 'Egreso / Dispensación'}
+            </span>
+          </div>
           <div className="flex justify-between"><span className="text-slate-500">Genética</span><span className="font-medium text-slate-800">{mov.genetica.nombre}</span></div>
-          <div className="flex justify-between"><span className="text-slate-500">Cantidad</span><span className="font-semibold text-slate-800">{display}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Cantidad</span><span className="font-semibold text-slate-800">{fmt(mov.cantidadGramos)}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Fecha</span><span className="text-slate-700">{new Date(mov.fecha).toLocaleDateString('es-AR')}</span></div>
           {mov.asociado && <div className="flex justify-between"><span className="text-slate-500">Asociado</span><span className="text-slate-700">{mov.asociado.nombre} {mov.asociado.apellido}</span></div>}
-          {mov.lote && <div className="flex justify-between"><span className="text-slate-500">Lote</span><span className="text-slate-700">{mov.lote.codigo}</span></div>}
           {mov.usuario && <div className="flex justify-between"><span className="text-slate-500">Registrado por</span><span className="text-slate-700">{mov.usuario.nombre} {mov.usuario.apellido}</span></div>}
           {mov.observaciones && <div><p className="text-slate-500 mb-0.5">Observaciones</p><p className="text-slate-700 bg-slate-50 rounded-lg p-2.5">{mov.observaciones}</p></div>}
         </div>
@@ -279,9 +283,11 @@ export default function Dispensario() {
   >(null)
   const [borrando, setBorrando] = useState(false)
 
-  useEffect(() => {
+  const cargarGeneticas = useCallback(() => {
     api.get<Genetica[]>('/geneticas').then(r => setGeneticas(r.data ?? [])).catch(() => {})
   }, [])
+
+  useEffect(() => { cargarGeneticas() }, [cargarGeneticas])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -300,19 +306,22 @@ export default function Dispensario() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  // Estadísticas del mes actual
+  function onGuardar() { cargar(); cargarGeneticas() }
+
+  // Stats del mes actual
   const mesActual = new Date().toISOString().slice(0, 7)
-  const [statsIngreso, setStatsIngreso] = useState(0)
-  const [statsEgreso,  setStatsEgreso]  = useState(0)
+  const [statsTraslado, setStatsTraslado] = useState(0)
+  const [statsEgreso,   setStatsEgreso]   = useState(0)
 
   useEffect(() => {
     api.get<{ movimientos: Movimiento[] }>(`/dispensario?mes=${mesActual}&limit=500`).then(({ data }) => {
       const movs = data.movimientos ?? []
-      setStatsIngreso(movs.filter(m => m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0))
+      setStatsTraslado(movs.filter(m => m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0))
       setStatsEgreso(movs.filter(m => m.tipo === 'EGRESO').reduce((s, m) => s + m.cantidadGramos, 0))
     }).catch(() => {})
   }, [mesActual])
 
+  const stockDispensarioTotal = geneticas.reduce((s, g) => s + g.stockGramosDispensario, 0)
   const totalPages = Math.ceil(total / LIMIT)
 
   function resetFiltros() { setFiltroGen(''); setFiltroTipo(''); setFiltroMes(''); setPage(1) }
@@ -322,13 +331,11 @@ export default function Dispensario() {
     try {
       await api.delete(`/dispensario/${mov.id}`)
       setModal(null)
-      cargar()
+      onGuardar()
     } finally {
       setBorrando(false)
     }
   }
-
-  function fmt(g: number) { return g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${g} g` }
 
   return (
     <div className="space-y-5">
@@ -338,7 +345,7 @@ export default function Dispensario() {
         <div>
           <h2 className="text-lg font-semibold text-[#1a1814]">Dispensario</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {puedeIngreso ? 'Registrá ingresos y egresos' : 'Registrá egresos de stock'}
+            {puedeIngreso ? 'Trasladá stock y registrá dispensaciones' : 'Registrá dispensaciones a asociados'}
           </p>
         </div>
         <button
@@ -346,23 +353,40 @@ export default function Dispensario() {
           className="flex items-center gap-2 px-4 py-2 bg-[#1a1814] text-[#FEF8DC] rounded-xl text-sm font-medium hover:bg-[#26221a] transition-colors"
         >
           <Plus className="w-4 h-4" />
-          {puedeIngreso ? 'Nuevo movimiento' : 'Registrar egreso'}
+          Nuevo movimiento
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Total en stock', valor: geneticas.reduce((s, g) => s + g.stockGramos, 0), color: 'text-[#1a1814]' },
-          { label: 'Ingresos del mes', valor: statsIngreso, color: 'text-[#4a7030]' },
-          { label: 'Egresos del mes', valor: statsEgreso, color: 'text-red-600' },
-        ].map(({ label, valor, color }) => (
-          <div key={label} className="tarjeta p-4">
-            <p className="text-xs text-slate-500 mb-1">{label}</p>
-            <p className={`text-lg font-bold ${color}`}>{fmt(valor)}</p>
-          </div>
-        ))}
+        <div className="tarjeta p-4">
+          <p className="text-xs text-slate-500 mb-1">Stock en Dispensario</p>
+          <p className={`text-lg font-bold ${stockDispensarioTotal <= 0 ? 'text-red-600' : 'text-[#1a1814]'}`}>{fmt(stockDispensarioTotal)}</p>
+        </div>
+        <div className="tarjeta p-4">
+          <p className="text-xs text-slate-500 mb-1">Trasladado este mes</p>
+          <p className="text-lg font-bold text-[#7a6840]">{fmt(statsTraslado)}</p>
+        </div>
+        <div className="tarjeta p-4">
+          <p className="text-xs text-slate-500 mb-1">Dispensado este mes</p>
+          <p className="text-lg font-bold text-red-600">{fmt(statsEgreso)}</p>
+        </div>
       </div>
+
+      {/* Stock por genética */}
+      {geneticas.some(g => g.stockGramosDispensario > 0) && (
+        <div className="tarjeta p-4">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Stock por genética en dispensario</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {geneticas.filter(g => g.stockGramosDispensario > 0).map(g => (
+              <div key={g.id} className="flex items-center justify-between bg-[#F5F4F2] rounded-lg px-3 py-2">
+                <span className="text-xs font-medium text-slate-700 truncate mr-2">{g.nombre}</span>
+                <span className="text-xs font-bold text-[#4a7030] shrink-0">{fmt(g.stockGramosDispensario)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex gap-2 flex-wrap">
@@ -370,10 +394,10 @@ export default function Dispensario() {
           <option value="">Todas las genéticas</option>
           {geneticas.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
         </select>
-        <select value={filtroTipo} onChange={e => { setFiltroTipo(e.target.value); setPage(1) }} className="campo w-36 text-sm">
-          <option value="">Todos los tipos</option>
-          <option value="INGRESO">Ingreso</option>
-          <option value="EGRESO">Egreso</option>
+        <select value={filtroTipo} onChange={e => { setFiltroTipo(e.target.value); setPage(1) }} className="campo w-44 text-sm">
+          <option value="">Todos</option>
+          <option value="INGRESO">Traslados</option>
+          <option value="EGRESO">Dispensaciones</option>
         </select>
         <input type="month" value={filtroMes} onChange={e => { setFiltroMes(e.target.value); setPage(1) }} className="campo w-40 text-sm" />
         {(filtroGen || filtroTipo || filtroMes) && (
@@ -405,11 +429,15 @@ export default function Dispensario() {
                   {movimientos.map(mov => (
                     <tr key={mov.id} className="hover:bg-[#FAFAF8] transition-colors">
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          mov.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-700'
-                        }`}>
-                          {mov.tipo === 'INGRESO' ? '↑ Ingreso' : '↓ Egreso'}
-                        </span>
+                        {mov.tipo === 'INGRESO' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#fdf9ee] text-[#7a6840]">
+                            <ArrowDownLeft className="w-3 h-3" /> Traslado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                            <ArrowUpRight className="w-3 h-3" /> Dispensación
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-800">{mov.genetica.nombre}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-800">{fmt(mov.cantidadGramos)}</td>
@@ -442,7 +470,6 @@ export default function Dispensario() {
               </table>
             </div>
 
-            {/* Paginación */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-[#E8E6E0]">
                 <span className="text-xs text-slate-500">{total} movimientos</span>
@@ -463,23 +490,23 @@ export default function Dispensario() {
 
       {/* Modales */}
       {modal?.tipo === 'nuevo' && (
-        <ModalMovimiento geneticas={geneticas} puedeIngreso={puedeIngreso} onGuardar={cargar} onCerrar={() => setModal(null)} />
+        <ModalMovimiento geneticas={geneticas} puedeIngreso={puedeIngreso} onGuardar={onGuardar} onCerrar={() => setModal(null)} />
       )}
       {modal?.tipo === 'editar' && (
-        <ModalMovimiento editar={modal.mov} geneticas={geneticas} puedeIngreso={puedeIngreso} onGuardar={cargar} onCerrar={() => setModal(null)} />
+        <ModalMovimiento editar={modal.mov} geneticas={geneticas} puedeIngreso={puedeIngreso} onGuardar={onGuardar} onCerrar={() => setModal(null)} />
       )}
       {modal?.tipo === 'detalle' && (
         <ModalDetalle mov={modal.mov} onCerrar={() => setModal(null)} />
       )}
 
-      {/* Confirm borrar */}
       {modal?.tipo === 'borrar' && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6">
             <p className="font-medium text-slate-900 text-sm mb-2">¿Eliminar movimiento?</p>
             <p className="text-sm text-slate-500 mb-5">
-              {modal.mov.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} de {fmt(modal.mov.cantidadGramos)} de {modal.mov.genetica.nombre}.
-              Esta acción revierte el stock y no se puede deshacer.
+              {modal.mov.tipo === 'INGRESO' ? 'Traslado' : 'Dispensación'} de {fmt(modal.mov.cantidadGramos)} de {modal.mov.genetica.nombre}.
+              {modal.mov.tipo === 'INGRESO' && ' Los gramos volverán al stock total.'}
+              {' '}Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setModal(null)} className="flex-1 py-2.5 text-sm rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700">Cancelar</button>
