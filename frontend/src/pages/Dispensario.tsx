@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext'
 interface Genetica {
   id: string
   nombre: string
-  stockGramos: number
   stockGramosDispensario: number
 }
 
@@ -146,17 +145,11 @@ function ModalMovimiento({
             </div>
           )}
 
-          {/* Info de stock según tipo */}
+          {/* Stock disponible en dispensario */}
           {gen && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
-                <p className="text-xs text-slate-500 mb-0.5">Stock Total</p>
-                <p className={`text-sm font-bold ${gen.stockGramos <= 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(gen.stockGramos)}</p>
-              </div>
-              <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
-                <p className="text-xs text-slate-500 mb-0.5">En Dispensario</p>
-                <p className={`text-sm font-bold ${gen.stockGramosDispensario <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>{fmt(gen.stockGramosDispensario)}</p>
-              </div>
+            <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
+              <p className="text-xs text-slate-500 mb-0.5">Disponible en dispensario</p>
+              <p className={`text-sm font-bold ${gen.stockGramosDispensario <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>{fmt(gen.stockGramosDispensario)}</p>
             </div>
           )}
 
