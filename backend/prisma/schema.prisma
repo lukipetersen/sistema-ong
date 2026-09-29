@@ -240,7 +240,8 @@ model Genetica {
   nombre        String   @unique
   descripcion   String?
   observaciones String?
-  stockGramos   Int      @default(0)
+  stockGramos            Int      @default(0)
+  stockGramosDispensario Int      @default(0)
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
