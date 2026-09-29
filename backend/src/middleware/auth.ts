@@ -9,6 +9,7 @@ declare global {
       usuarioId: string
       usuarioRol: Rol
       usuarioSedeId?: string | null
+      usuarioModulos: string[]
     }
   }
 }
@@ -24,7 +25,7 @@ export async function autenticar(req: Request, res: Response, next: NextFunction
     const payload = verificarToken(token)
     const usuario = await prisma.usuario.findUnique({
       where: { id: payload.sub, activo: true },
-      select: { id: true, rol: true, sedeId: true },
+      select: { id: true, rol: true, sedeId: true, modulosPermitidos: true },
     })
 
     if (!usuario) {
@@ -34,6 +35,7 @@ export async function autenticar(req: Request, res: Response, next: NextFunction
     req.usuarioId = usuario.id
     req.usuarioRol = usuario.rol
     req.usuarioSedeId = usuario.sedeId
+    req.usuarioModulos = usuario.modulosPermitidos ?? []
     next()
   } catch {
     return res.status(401).json({ error: 'Sesión expirada. Iniciá sesión nuevamente.' })
@@ -48,5 +50,14 @@ export function autorizar(...roles: Rol[]) {
       })
     }
     next()
+  }
+}
+
+export function tieneModulo(modulo: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.usuarioRol === 'ADMINISTRADOR') return next()
+    const mods = req.usuarioModulos
+    if (mods.length === 0 || mods.includes(modulo)) return next()
+    return res.status(403).json({ error: 'No tenés acceso a este módulo.' })
   }
 }

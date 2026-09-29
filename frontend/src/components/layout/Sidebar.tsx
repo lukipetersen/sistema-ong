@@ -6,17 +6,18 @@ import {
 import { useAuth, type Rol } from '@/contexts/AuthContext'
 
 const NAV_COMPLETO = [
-  { label: 'Inicio',       icono: LayoutDashboard, ruta: '/',             exact: true, roles: null },
-  { label: 'Finanzas',     icono: Landmark,         ruta: '/finanzas',                 roles: null },
-  { label: 'Trazabilidad', icono: Leaf,             ruta: '/trazabilidad',             roles: null },
-  { label: 'Stock',        icono: Package,          ruta: '/stock',                    roles: null },
-  { label: 'Asociados',    icono: UserCheck,        ruta: '/asociados',                roles: null },
-  { label: 'Forms',        icono: ClipboardList,    ruta: '/forms',                    roles: null },
-  { label: 'Reportes',     icono: BarChart3,        ruta: '/reportes',                 roles: null },
+  { label: 'Inicio',       icono: LayoutDashboard, ruta: '/',             exact: true,  soloAdmin: false },
+  { label: 'Finanzas',     icono: Landmark,         ruta: '/finanzas',                  soloAdmin: false },
+  { label: 'Trazabilidad', icono: Leaf,             ruta: '/trazabilidad',              soloAdmin: false },
+  { label: 'Stock Total',  icono: Package,          ruta: '/stock',                     soloAdmin: true  },
+  { label: 'Dispensario',  icono: Package,          ruta: '/dispensario',               soloAdmin: false },
+  { label: 'Asociados',    icono: UserCheck,        ruta: '/asociados',                 soloAdmin: false },
+  { label: 'Forms',        icono: ClipboardList,    ruta: '/forms',                     soloAdmin: false },
+  { label: 'Reportes',     icono: BarChart3,        ruta: '/reportes',                  soloAdmin: false },
 ]
 
 const NAV_POR_ROL: Partial<Record<Rol, string[]>> = {
-  SOLO_STOCK: ['/stock'],
+  SOLO_STOCK: ['/dispensario'],
 }
 
 const ETIQUETA_ROL: Record<Rol, string> = {
@@ -37,9 +38,10 @@ export default function Sidebar({ abierto, onCerrar }: SidebarProps) {
 
   const nav = NAV_COMPLETO.filter(item => {
     if (!usuario) return false
+    if (item.soloAdmin) return usuario.rol === 'ADMINISTRADOR'
     if (usuario.rol === 'ADMINISTRADOR') return true
     const mods = usuario.modulosPermitidos
-    if (mods.length > 0) return mods.includes(item.ruta)
+    if (mods.length > 0) return mods.some(m => m === item.ruta || m.startsWith(item.ruta + ':'))
     const fallback = NAV_POR_ROL[usuario.rol] ?? null
     return fallback === null || fallback.includes(item.ruta)
   })

@@ -14,6 +14,7 @@ import Trazabilidad from '@/pages/Trazabilidad'
 import Reportes from '@/pages/Reportes'
 import Forms from '@/pages/Forms'
 import Stock from '@/pages/Stock'
+import Dispensario from '@/pages/Dispensario'
 import Configuracion from '@/pages/Configuracion'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } })
@@ -49,7 +50,7 @@ const todosLosRoles: Rol[] = ['ADMINISTRADOR', 'COORDINADOR', 'OPERADOR', 'SOLO_
 
 function primeraRutaPermitida(usuario: UsuarioAuth): string {
   if (usuario.modulosPermitidos.length > 0) return usuario.modulosPermitidos[0]
-  if (usuario.rol === 'SOLO_STOCK') return '/stock'
+  if (usuario.rol === 'SOLO_STOCK') return '/dispensario'
   return '/'
 }
 
@@ -83,9 +84,10 @@ function RutaConRol({ roles, ruta, children }: { roles: Rol[]; ruta?: string; ch
   if (ruta && usuario.rol !== 'ADMINISTRADOR') {
     const mods = usuario.modulosPermitidos
     if (mods.length > 0) {
-      if (!mods.includes(ruta)) return <Navigate to={primeraRutaPermitida(usuario)} replace />
-    } else if (usuario.rol === 'SOLO_STOCK' && ruta !== '/stock') {
-      return <Navigate to="/stock" replace />
+      const tieneAcceso = mods.some(m => m === ruta || m.startsWith(ruta + ':'))
+      if (!tieneAcceso) return <Navigate to={primeraRutaPermitida(usuario)} replace />
+    } else if (usuario.rol === 'SOLO_STOCK' && ruta !== '/dispensario') {
+      return <Navigate to="/dispensario" replace />
     }
   }
 
@@ -103,7 +105,7 @@ function EntradaInicial() {
     return <Navigate to={mods[0]} replace />
   }
   if (usuario.rol === 'SOLO_STOCK' && mods.length === 0) {
-    return <Navigate to="/stock" replace />
+    return <Navigate to="/dispensario" replace />
   }
   return <Dashboard />
 }
@@ -127,7 +129,8 @@ function Rutas() {
         <Route path="socios"         element={<RutaConRol roles={todosLosRoles}><Proximamente /></RutaConRol>} />
         <Route path="reportes"       element={<RutaConRol roles={todosLosRoles} ruta="/reportes"><Reportes /></RutaConRol>} />
         <Route path="forms"          element={<RutaConRol roles={todosLosRoles} ruta="/forms"><Forms /></RutaConRol>} />
-        <Route path="stock"          element={<RutaConRol roles={todosLosRoles} ruta="/stock"><Stock /></RutaConRol>} />
+        <Route path="stock"          element={<RutaConRol roles={['ADMINISTRADOR']}><Stock /></RutaConRol>} />
+        <Route path="dispensario"    element={<RutaConRol roles={todosLosRoles} ruta="/dispensario"><Dispensario /></RutaConRol>} />
 
         {/* Configuración: solo administradores */}
         <Route path="configuracion" element={<RutaConRol roles={['ADMINISTRADOR']} ruta="/configuracion"><Configuracion /></RutaConRol>} />

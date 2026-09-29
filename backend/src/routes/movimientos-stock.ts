@@ -1,21 +1,23 @@
 import { Router, Request, Response } from 'express'
-import { TipoMovimiento } from '@prisma/client'
+import { TipoMovimiento, SeccionStock } from '@prisma/client'
 import prisma from '../lib/prisma'
-import { autenticar } from '../middleware/auth'
+import { autenticar, autorizar } from '../middleware/auth'
 
 const router = Router()
 router.use(autenticar)
+router.use(autorizar('ADMINISTRADOR'))
 
 // ─── GET /api/movimientos-stock ──────────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, loteId, tipo, mes, asociadoId, page = '1', limit = '50' } = req.query as Record<string, string>
+    const { geneticaId, loteId, tipo, mes, asociadoId, seccion, page = '1', limit = '50' } = req.query as Record<string, string>
 
     const where: Record<string, unknown> = {}
     if (geneticaId)  where.geneticaId  = geneticaId
     if (loteId)      where.loteId      = loteId
     if (asociadoId)  where.asociadoId  = asociadoId
     if (tipo && ['INGRESO', 'EGRESO'].includes(tipo)) where.tipo = tipo
+    if (seccion && ['STOCK_TOTAL', 'DISPENSARIO'].includes(seccion)) where.seccion = seccion as SeccionStock
     if (mes) {
       const [anio, m] = mes.split('-').map(Number)
       where.fecha = { gte: new Date(anio, m - 1, 1), lt: new Date(anio, m, 1) }
@@ -93,18 +95,16 @@ router.post('/', async (req: Request, res: Response) => {
     const usuarioId = req.usuarioId ?? null
 
     const [movimiento, stockActual] = await prisma.$transaction(async (tx) => {
-      // Update genetica stock
       const genetica = await tx.genetica.update({
         where: { id: geneticaId },
         data:  { stockGramos: { increment: delta } },
       })
 
-      // Update loteGenetica stock if loteId provided
       if (loteId) {
         await tx.loteGenetica.upsert({
           where: { loteId_geneticaId: { loteId, geneticaId } },
           update: { stockGramos: { increment: delta } },
-          create: { loteId, geneticaId, stockGramos: delta < 0 ? delta : delta },
+          create: { loteId, geneticaId, stockGramos: delta },
         })
       }
 
@@ -113,7 +113,8 @@ router.post('/', async (req: Request, res: Response) => {
           geneticaId,
           loteId:     loteId     || null,
           asociadoId: asociadoId || null,
-          tipo: tipo as TipoMovimiento,
+          tipo:       tipo as TipoMovimiento,
+          seccion:    'STOCK_TOTAL',
           cantidadGramos: gramos,
           fecha: new Date(fecha),
           observaciones: observaciones || null,

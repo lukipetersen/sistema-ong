@@ -14,6 +14,7 @@ import plantasRoutes from './routes/plantas'
 import reportesRoutes from './routes/reportes'
 import configuracionRoutes from './routes/configuracion'
 import movimientosStockRoutes from './routes/movimientos-stock'
+import dispensarioRoutes from './routes/dispensario'
 import subproductosRoutes from './routes/subproductos'
 import usuariosRoutes from './routes/usuarios'
 import { manejadorErrores } from './middleware/errores'
@@ -56,6 +57,7 @@ app.use('/api/plantas', plantasRoutes)
 app.use('/api/reportes', reportesRoutes)
 app.use('/api/configuracion', configuracionRoutes)
 app.use('/api/movimientos-stock', movimientosStockRoutes)
+app.use('/api/dispensario', dispensarioRoutes)
 app.use('/api/subproductos', subproductosRoutes)
 app.use('/api/usuarios', usuariosRoutes)
 
