@@ -81,7 +81,7 @@ function ModalMovimiento({
     const gramos = unidad === 'kg' ? Math.round(Number(cantidad) * 1000) : Math.round(Number(cantidad))
     setGuardando(true); setError('')
     try {
-      const body = { geneticaId, tipo, loteId: tipo === 'INGRESO' ? (loteId || null) : null, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: tipo === 'EGRESO' ? (asociadoId || null) : null }
+      const body = { geneticaId, tipo, loteId: loteId || null, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: tipo === 'EGRESO' ? (asociadoId || null) : null }
       if (editar) {
         await api.put(`/dispensario/${editar.id}`, body)
       } else {
@@ -155,10 +155,13 @@ function ModalMovimiento({
             </div>
           )}
 
-          {/* Lote de origen — solo para INGRESO (traslado) */}
-          {!editar && tipo === 'INGRESO' && geneticaId && (
+          {/* Lote vinculado */}
+          {!editar && geneticaId && (
             <div>
-              <label className="etiqueta">Lote de origen <span className="text-slate-400 font-normal">(opcional)</span></label>
+              <label className="etiqueta">
+                {tipo === 'INGRESO' ? 'Lote de origen' : 'Lote vinculado'}
+                <span className="text-slate-400 font-normal ml-1">(opcional)</span>
+              </label>
               <select value={loteId} onChange={e => setLoteId(e.target.value)} className="campo">
                 <option value="">Sin lote específico</option>
                 {lotes.map(l => <option key={l.id} value={l.id}>{l.nombre || l.codigo}</option>)}

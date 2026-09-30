@@ -122,8 +122,8 @@ router.post('/', async (req: Request, res: Response) => {
       const mov = await tx.movimientoStock.create({
         data: {
           geneticaId,
-          loteId:     tipo === 'INGRESO' ? (loteId || null) : null,
-          asociadoId: tipo === 'EGRESO'  ? (asociadoId || null) : null,
+          loteId:     loteId    || null,
+          asociadoId: tipo === 'EGRESO' ? (asociadoId || null) : null,
           tipo:       tipo as TipoMovimiento,
           seccion:    'DISPENSARIO',
           cantidadGramos: gramos,
