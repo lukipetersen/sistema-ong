@@ -133,6 +133,15 @@ router.get('/:id', async (req: Request, res: Response) => {
           include: { genetica: { select: { id: true, nombre: true } } },
         },
         historial: { orderBy: { creadoEn: 'desc' }, take: 50 },
+        movimientos: {
+          where:   { seccion: 'STOCK_TOTAL' },
+          orderBy: { fecha: 'desc' },
+          select:  {
+            id: true, tipo: true, cantidadGramos: true, fecha: true, observaciones: true,
+            genetica: { select: { id: true, nombre: true } },
+            usuario:  { select: { id: true, nombre: true, apellido: true } },
+          },
+        },
       },
     })
     if (!lote) return res.status(404).json({ error: 'Lote no encontrado' })

@@ -180,14 +180,16 @@ function ModalMovimiento({
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="campo" />
           </div>
 
-          {/* Asociado (más relevante para egresos) */}
+          {/* Asociado — solo en egresos (dispensaciones) */}
+          {tipo === 'EGRESO' && (
           <div>
-            <label className="etiqueta">Asociado {tipo === 'EGRESO' ? '(recomendado)' : '(opcional)'}</label>
+            <label className="etiqueta">Asociado (recomendado)</label>
             <select value={asociadoId} onChange={e => setAsociadoId(e.target.value)} className="campo">
               <option value="">Sin asociado</option>
               {asociados.map(a => <option key={a.id} value={a.id}>{a.nombre} {a.apellido}</option>)}
             </select>
           </div>
+          )}
 
           {/* Observaciones */}
           <div>

@@ -56,9 +56,20 @@ export interface Lote extends LoteResumen {
   plantas?: { geneticaId: string; estado: string }[]
 }
 
+export interface MovimientoLote {
+  id: string
+  tipo: 'INGRESO' | 'EGRESO'
+  cantidadGramos: number
+  fecha: string
+  observaciones: string | null
+  genetica: { id: string; nombre: string }
+  usuario: { id: string; nombre: string; apellido: string } | null
+}
+
 export interface LoteDetalle extends Lote {
   plantas: Planta[]
   historial: HistorialLote[]
+  movimientos: MovimientoLote[]
 }
 
 export interface Planta {

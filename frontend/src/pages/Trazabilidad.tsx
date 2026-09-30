@@ -30,7 +30,7 @@ function iconoArchivo(tipo: string) {
 function puedePrevisualizar(tipo: string): boolean {
   return tipo === 'application/pdf' || tipo.startsWith('image/')
 }
-import type { Genetica, LoteGenetica, Lote, LoteDetalle, Planta } from '../types/geneticas'
+import type { Genetica, LoteGenetica, Lote, LoteDetalle, MovimientoLote, Planta } from '../types/geneticas'
 import {
   ESTADO_LOTE_LABELS, ESTADO_PLANTA_LABELS, SALA_LABELS,
   ESTADO_LOTE_COLOR, ESTADO_PLANTA_COLOR,
@@ -879,6 +879,58 @@ function VistaLoteDetalle({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </section>
+
+      {/* Sección: Movimientos al Stock Total */}
+      <section className="mt-6 rounded-xl border border-[#E8E6E0] bg-white p-4 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">
+          Salidas al Stock Total
+          {data.movimientos.length > 0 && (
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              ({data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0) >= 1000
+                ? `${(data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0) / 1000).toFixed(2)} kg total`
+                : `${data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0)} g total`})
+            </span>
+          )}
+        </h3>
+        {data.movimientos.length === 0 ? (
+          <p className="text-sm text-gray-400">No hay movimientos de stock registrados para este lote.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#E8E6E0] bg-[#F5F4F2]">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Genética</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Cantidad</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Registrado por</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Observaciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F0EEEA]">
+                {data.movimientos.map((m: MovimientoLote) => (
+                  <tr key={m.id} className="hover:bg-[#FAFAF8]">
+                    <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                      {new Date(m.fecha).toLocaleDateString('es-AR')}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{m.genetica.nombre}</td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#7a6840]">
+                      {m.cantidadGramos >= 1000
+                        ? `${(m.cantidadGramos / 1000).toFixed(2)} kg`
+                        : `${m.cantidadGramos} g`}
+                    </td>
+                    <td className="px-3 py-2 text-slate-500 hidden sm:table-cell">
+                      {m.usuario ? `${m.usuario.nombre} ${m.usuario.apellido}` : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-slate-500 hidden md:table-cell">
+                      {m.observaciones ?? <span className="text-slate-300">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
