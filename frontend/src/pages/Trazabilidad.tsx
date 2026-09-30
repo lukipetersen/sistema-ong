@@ -886,14 +886,17 @@ function VistaLoteDetalle({
       {/* Sección: Movimientos al Stock Total */}
       <section className="mt-6 rounded-xl border border-[#E8E6E0] bg-white p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-gray-700">
-          Salidas al Stock Total
-          {data.movimientos.length > 0 && (
-            <span className="ml-2 text-xs font-normal text-slate-400">
-              ({data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0) >= 1000
-                ? `${(data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0) / 1000).toFixed(2)} kg total`
-                : `${data.movimientos.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : 0), 0)} g total`})
-            </span>
-          )}
+          Movimientos al Stock Total
+          {data.movimientos.length > 0 && (() => {
+            const totalIngreso = data.movimientos.filter(m => m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
+            const totalEgreso  = data.movimientos.filter(m => m.tipo === 'EGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
+            const fmt = (g: number) => g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${g} g`
+            return (
+              <span className="ml-2 text-xs font-normal text-slate-400">
+                ↑ {fmt(totalIngreso)} ingresado · ↓ {fmt(totalEgreso)} egresado
+              </span>
+            )
+          })()}
         </h3>
         {data.movimientos.length === 0 ? (
           <p className="text-sm text-gray-400">No hay movimientos de stock registrados para este lote.</p>
@@ -902,6 +905,7 @@ function VistaLoteDetalle({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E8E6E0] bg-[#F5F4F2]">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Genética</th>
                   <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Cantidad</th>
@@ -912,12 +916,23 @@ function VistaLoteDetalle({
               <tbody className="divide-y divide-[#F0EEEA]">
                 {data.movimientos.map((m: MovimientoLote) => (
                   <tr key={m.id} className="hover:bg-[#FAFAF8]">
+                    <td className="px-3 py-2">
+                      {m.tipo === 'INGRESO' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#f0f7e8] text-[#4a7030]">
+                          ↑ Ingreso
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                          ↓ Egreso
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                       {new Date(m.fecha).toLocaleDateString('es-AR')}
                     </td>
                     <td className="px-3 py-2 font-medium text-slate-800">{m.genetica.nombre}</td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#7a6840]">
-                      {m.cantidadGramos >= 1000
+                    <td className={`px-3 py-2 text-right font-semibold tabular-nums ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
+                      {m.tipo === 'EGRESO' ? '−' : '+'}{m.cantidadGramos >= 1000
                         ? `${(m.cantidadGramos / 1000).toFixed(2)} kg`
                         : `${m.cantidadGramos} g`}
                     </td>
