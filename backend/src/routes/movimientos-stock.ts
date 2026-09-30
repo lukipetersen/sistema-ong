@@ -57,7 +57,7 @@ router.get('/resumen', async (_req: Request, res: Response) => {
         loteGeneticas: {
           select: {
             stockGramos: true,
-            lote: { select: { id: true, codigo: true } },
+            lote: { select: { id: true, codigo: true, nombre: true } },
           },
         },
       },
@@ -69,8 +69,9 @@ router.get('/resumen', async (_req: Request, res: Response) => {
       stockGramos: g.stockGramos,
       ultimoMov: g.movimientos[0] ?? null,
       lotes: g.loteGeneticas.map(lg => ({
-        loteId:     lg.lote.id,
-        loteCodigo: lg.lote.codigo,
+        loteId:      lg.lote.id,
+        loteCodigo:  lg.lote.codigo,
+        loteNombre:  lg.lote.nombre ?? null,
         stockGramos: lg.stockGramos,
       })),
     })))
@@ -267,42 +268,52 @@ router.post('/importar', async (req: Request, res: Response) => {
 })
 
 // ─── POST /api/movimientos-stock/recalcular ───────────────────────────────────
-// Recalcula stockGramos de TODAS las genéticas desde sus movimientos.
-// También recalcula LoteGenetica.stockGramos.
+// Recalcula stockGramos y stockGramosDispensario desde cero para todas las genéticas.
+// Maneja correctamente ambas secciones:
+//   STOCK_TOTAL INGRESO → +stockGramos
+//   STOCK_TOTAL EGRESO  → -stockGramos
+//   DISPENSARIO INGRESO → -stockGramos (traslado fuera del total), +stockGramosDispensario
+//   DISPENSARIO EGRESO  → -stockGramosDispensario
 router.post('/recalcular', async (_req: Request, res: Response) => {
   try {
     const [movimientos, geneticas, loteGeneticas] = await Promise.all([
-      prisma.movimientoStock.findMany({ select: { geneticaId: true, loteId: true, tipo: true, cantidadGramos: true } }),
+      prisma.movimientoStock.findMany({ select: { geneticaId: true, loteId: true, tipo: true, cantidadGramos: true, seccion: true } }),
       prisma.genetica.findMany({ select: { id: true } }),
       prisma.loteGenetica.findMany({ select: { loteId: true, geneticaId: true } }),
     ])
 
-    // Calculate genetica stocks
-    const stocksGenetica = new Map<string, number>()
+    type Stocks = { gramos: number; gramosDisp: number }
+    const stocksGenetica = new Map<string, Stocks>()
+    for (const g of geneticas) stocksGenetica.set(g.id, { gramos: 0, gramosDisp: 0 })
+
     for (const m of movimientos) {
-      const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
-      stocksGenetica.set(m.geneticaId, (stocksGenetica.get(m.geneticaId) ?? 0) + delta)
+      const s = stocksGenetica.get(m.geneticaId) ?? { gramos: 0, gramosDisp: 0 }
+      if (m.seccion === 'STOCK_TOTAL') {
+        s.gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      } else {
+        if (m.tipo === 'INGRESO') { s.gramos -= m.cantidadGramos; s.gramosDisp += m.cantidadGramos }
+        else                      { s.gramosDisp -= m.cantidadGramos }
+      }
+      stocksGenetica.set(m.geneticaId, s)
     }
 
-    // Calculate lote-genetica stocks
+    // Lote-genetica: solo movimientos STOCK_TOTAL
     const stocksLoteGenetica = new Map<string, number>()
     for (const m of movimientos) {
-      if (!m.loteId) continue
+      if (!m.loteId || m.seccion !== 'STOCK_TOTAL') continue
       const key = `${m.loteId}|${m.geneticaId}`
       const delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
       stocksLoteGenetica.set(key, (stocksLoteGenetica.get(key) ?? 0) + delta)
     }
 
     await prisma.$transaction(async (tx) => {
-      // Update genetica stocks
       for (const g of geneticas) {
+        const s = stocksGenetica.get(g.id) ?? { gramos: 0, gramosDisp: 0 }
         await tx.genetica.update({
           where: { id: g.id },
-          data:  { stockGramos: stocksGenetica.get(g.id) ?? 0 },
+          data:  { stockGramos: s.gramos, stockGramosDispensario: s.gramosDisp },
         })
       }
-
-      // Update lote-genetica stocks
       for (const lg of loteGeneticas) {
         const key = `${lg.loteId}|${lg.geneticaId}`
         await tx.loteGenetica.update({
@@ -389,26 +400,47 @@ router.put('/:id', async (req: Request, res: Response) => {
 })
 
 // ─── DELETE /api/movimientos-stock/:id ───────────────────────────────────────
-// Elimina y revierte el stock. Permite stock negativo resultante (avisa).
+// Elimina y recalcula el stock desde cero para evitar drift acumulado.
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const stockActual = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const mov = await tx.movimientoStock.delete({ where: { id: req.params.id } })
-      const delta = mov.tipo === 'INGRESO' ? -mov.cantidadGramos : mov.cantidadGramos
-      const g = await tx.genetica.update({ where: { id: mov.geneticaId }, data: { stockGramos: { increment: delta } } })
 
-      // Revert loteGenetica stock if movement had loteId
+      // Recalculate from scratch for this genetics (both counters)
+      const movs = await tx.movimientoStock.findMany({
+        where:  { geneticaId: mov.geneticaId },
+        select: { tipo: true, cantidadGramos: true, seccion: true, loteId: true },
+      })
+
+      let gramos = 0, gramosDisp = 0
+      for (const m of movs) {
+        if (m.seccion === 'STOCK_TOTAL') {
+          gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+        } else {
+          if (m.tipo === 'INGRESO') { gramos -= m.cantidadGramos; gramosDisp += m.cantidadGramos }
+          else                      { gramosDisp -= m.cantidadGramos }
+        }
+      }
+
+      await tx.genetica.update({
+        where: { id: mov.geneticaId },
+        data:  { stockGramos: gramos, stockGramosDispensario: gramosDisp },
+      })
+
+      // Recalculate loteGenetica if movement had loteId
       if (mov.loteId) {
+        const loteMovs = movs.filter(m => m.loteId === mov.loteId && m.seccion === 'STOCK_TOTAL')
+        const loteStock = loteMovs.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos), 0)
         await tx.loteGenetica.upsert({
-          where: { loteId_geneticaId: { loteId: mov.loteId, geneticaId: mov.geneticaId } },
-          update: { stockGramos: { increment: delta } },
-          create: { loteId: mov.loteId, geneticaId: mov.geneticaId, stockGramos: delta },
+          where:  { loteId_geneticaId: { loteId: mov.loteId, geneticaId: mov.geneticaId } },
+          update: { stockGramos: loteStock },
+          create: { loteId: mov.loteId, geneticaId: mov.geneticaId, stockGramos: loteStock },
         })
       }
 
-      return g.stockGramos
+      return { gramos, gramosDisp }
     })
-    res.json({ ok: true, stockNegativo: stockActual < 0, stockActual })
+    res.json({ ok: true, stockNegativo: result.gramos < 0, stockActual: result.gramos })
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : 'Error al eliminar movimiento' })
   }

@@ -45,6 +45,8 @@ function ModalMovimiento({
 }) {
   const [geneticaId,  setGeneticaId]  = useState(editar?.genetica.id ?? '')
   const [tipo,        setTipo]        = useState<'INGRESO' | 'EGRESO'>(editar?.tipo ?? 'EGRESO')
+  const [loteId,      setLoteId]      = useState('')
+  const [lotes,       setLotes]       = useState<{ id: string; codigo: string; nombre: string | null }[]>([])
   const [cantidad,    setCantidad]    = useState(editar ? String(editar.cantidadGramos) : '')
   const [unidad,      setUnidad]      = useState<'g' | 'kg'>('g')
   const [fecha,       setFecha]       = useState(editar ? editar.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10))
@@ -61,6 +63,14 @@ function ModalMovimiento({
     }).catch(() => {})
   }, [])
 
+  // Cargar lotes cuando cambia la genética (solo relevante para INGRESO)
+  useEffect(() => {
+    if (!geneticaId) { setLotes([]); setLoteId(''); return }
+    api.get<{ lotes: { id: string; codigo: string; nombre: string | null }[] }>(`/lotes?geneticaId=${geneticaId}&limit=100`)
+      .then(r => { setLotes(r.data.lotes ?? []); setLoteId('') })
+      .catch(() => setLotes([]))
+  }, [geneticaId])
+
   const gen = geneticas.find(g => g.id === geneticaId)
 
   async function guardar() {
@@ -71,7 +81,7 @@ function ModalMovimiento({
     const gramos = unidad === 'kg' ? Math.round(Number(cantidad) * 1000) : Math.round(Number(cantidad))
     setGuardando(true); setError('')
     try {
-      const body = { geneticaId, tipo, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: asociadoId || null }
+      const body = { geneticaId, tipo, loteId: tipo === 'INGRESO' ? (loteId || null) : null, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: tipo === 'EGRESO' ? (asociadoId || null) : null }
       if (editar) {
         await api.put(`/dispensario/${editar.id}`, body)
       } else {
@@ -142,6 +152,20 @@ function ModalMovimiento({
             <div>
               <label className="etiqueta">Genética</label>
               <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
+            </div>
+          )}
+
+          {/* Lote de origen — solo para INGRESO (traslado) */}
+          {!editar && tipo === 'INGRESO' && geneticaId && (
+            <div>
+              <label className="etiqueta">Lote de origen <span className="text-slate-400 font-normal">(opcional)</span></label>
+              <select value={loteId} onChange={e => setLoteId(e.target.value)} className="campo">
+                <option value="">Sin lote específico</option>
+                {lotes.map(l => <option key={l.id} value={l.id}>{l.nombre || l.codigo}</option>)}
+              </select>
+              {lotes.length === 0 && (
+                <p className="text-xs text-slate-400 mt-1">No hay lotes asociados a esta genética</p>
+              )}
             </div>
           )}
 

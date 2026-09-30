@@ -14,7 +14,7 @@ interface Genetica {
   nombre: string
   stockGramos: number
   ultimoMov: { fecha: string; tipo: 'INGRESO' | 'EGRESO' } | null
-  lotes?: { loteId: string; loteCodigo: string; stockGramos: number }[]
+  lotes?: { loteId: string; loteCodigo: string; loteNombre: string | null; stockGramos: number }[]
 }
 
 interface Movimiento {
@@ -24,13 +24,13 @@ interface Movimiento {
   fecha: string
   observaciones: string | null
   genetica: { id: string; nombre: string }
-  lote: { id: string; codigo: string } | null
+  lote: { id: string; codigo: string; nombre: string | null } | null
   asociado: { id: string; nombre: string; apellido: string } | null
   usuario: { id: string; nombre: string; apellido: string } | null
 }
 
 interface GeneticaOption  { id: string; nombre: string }
-interface LoteOption      { id: string; codigo: string }
+interface LoteOption      { id: string; codigo: string; nombre: string | null }
 interface AsociadoOption  { id: string; nombre: string; apellido: string }
 
 interface Subproducto {
@@ -50,7 +50,7 @@ interface MovimientoSubproducto {
   fecha: string
   observaciones: string | null
   subproducto: { id: string; nombre: string; unidad: string }
-  lote: { id: string; codigo: string } | null
+  lote: { id: string; codigo: string; nombre?: string | null } | null
   usuario: { id: string; nombre: string; apellido: string } | null
 }
 
@@ -197,7 +197,7 @@ function ModalMovimiento({
       .then(r => r.json())
       .then(d => {
         const lista = Array.isArray(d.lotes)
-          ? d.lotes.map((l: { id: string; codigo: string }) => ({ id: l.id, codigo: l.codigo }))
+          ? d.lotes.map((l: { id: string; codigo: string; nombre: string | null }) => ({ id: l.id, codigo: l.codigo, nombre: l.nombre ?? null }))
           : []
         setLotes(lista)
         setLoteId('')
@@ -312,7 +312,7 @@ function ModalMovimiento({
               <div className="relative">
                 <select value={loteId} onChange={e => setLoteId(e.target.value)} disabled={cargandoLotes} className="campo w-full appearance-none pr-8 disabled:opacity-60">
                   <option value="">Sin lote específico</option>
-                  {lotesDisponibles.map(l => <option key={l.id} value={l.id}>{l.codigo}</option>)}
+                  {lotesDisponibles.map(l => <option key={l.id} value={l.id}>{l.nombre || l.codigo}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
@@ -525,7 +525,7 @@ function ModalDetalleMovimiento({ movimiento, onCerrar }: { movimiento: Movimien
             {movimiento.lote && (
               <div>
                 <p className="text-xs font-medium text-slate-400 mb-0.5">Lote</p>
-                <p className="text-sm text-slate-800 font-mono">{movimiento.lote.codigo}</p>
+                <p className="text-sm text-slate-800">{movimiento.lote.nombre || movimiento.lote.codigo}</p>
               </div>
             )}
             {movimiento.asociado && (
@@ -701,7 +701,7 @@ function ModalMovSubproducto({ subproductos, subproductoPreseleccionado, onGuard
     fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/lotes?limit=200`, { headers })
       .then(r => r.json())
       .then(d => setLotes(Array.isArray(d.lotes)
-        ? d.lotes.map((l: { id: string; codigo: string }) => ({ id: l.id, codigo: l.codigo }))
+        ? d.lotes.map((l: { id: string; codigo: string; nombre: string | null }) => ({ id: l.id, codigo: l.codigo, nombre: l.nombre ?? null }))
         : []))
       .catch(() => setLotes([]))
       .finally(() => setCargLotes(false))
@@ -781,7 +781,7 @@ function ModalMovSubproducto({ subproductos, subproductoPreseleccionado, onGuard
             <div className="relative">
               <select value={loteId} onChange={e => setLoteId(e.target.value)} disabled={cargLotes} className="campo w-full appearance-none pr-8 disabled:opacity-60">
                 <option value="">Sin lote específico</option>
-                {lotes.map(l => <option key={l.id} value={l.id}>{l.codigo}</option>)}
+                {lotes.map(l => <option key={l.id} value={l.id}>{l.nombre || l.codigo}</option>)}
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
@@ -1267,7 +1267,7 @@ export default function Stock() {
                 <div className="mt-2 space-y-0.5">
                   {g.lotes.map(l => (
                     <div key={l.loteId} className="flex items-center justify-between text-xs text-slate-500">
-                      <span className="font-mono">{l.loteCodigo}</span>
+                      <span>{l.loteNombre || l.loteCodigo}</span>
                       <span className={l.stockGramos < 0 ? 'text-red-500' : l.stockGramos === 0 ? 'text-slate-400' : 'text-amber-600'}>{fmtStock(l.stockGramos)}</span>
                     </div>
                   ))}
@@ -1404,7 +1404,7 @@ export default function Stock() {
                         <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
                           {m.tipo === 'EGRESO' ? '-' : '+'}{m.cantidad} {m.subproducto.unidad}
                         </td>
-                        <td className="px-4 py-3 text-slate-500 font-mono text-xs hidden md:table-cell">{m.lote?.codigo ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">{m.lote ? (m.lote.nombre || m.lote.codigo) : '—'}</td>
                         <td className="px-4 py-3 text-slate-500 max-w-[200px] truncate hidden lg:table-cell">{m.observaciones ?? '—'}</td>
                         <td className="px-4 py-3">
                           <button

@@ -271,7 +271,7 @@ function ModalEditarLote({ lote, onGuardar, onCerrar, cargando, salaLabels }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Editar lote {lote.codigo}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Editar lote {lote.nombre || lote.codigo}</h2>
           <button onClick={onCerrar} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="space-y-4 p-6">
@@ -728,7 +728,8 @@ function VistaLoteDetalle({
           <ChevronLeft className="h-4 w-4" /> Volver a lotes
         </button>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-xl font-bold text-gray-900 font-mono">{data.codigo}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{data.nombre || data.codigo}</h2>
+          {data.nombre && <span className="text-sm text-gray-400 font-mono">{data.codigo}</span>}
           <BadgeLote estado={data.estado} />
           <span className="text-sm text-gray-500">{(salaLabels ?? SALA_LABELS)[data.sala]}</span>
           <span className="text-sm text-gray-400">·</span>
@@ -1018,7 +1019,7 @@ function VistaLoteDetalle({
       {/* Modals */}
       {modalAgregarGen && (
         <ModalAgregarGenetica
-          loteCodigo={data.codigo}
+          loteCodigo={data.nombre || data.codigo}
           geneticasDisponibles={geneticasNoEnLote}
           onGuardar={agregarGenetica}
           onCerrar={() => setModalAG(false)}
@@ -1029,7 +1030,7 @@ function VistaLoteDetalle({
       {modalAgregarPl && (
         <ModalAgregarPlantas
           loteId={loteId}
-          loteCodigo={data.codigo}
+          loteCodigo={data.nombre || data.codigo}
           loteGeneticas={data.loteGeneticas}
           onGuardar={agregarPlantas}
           onCerrar={() => setModalAP(false)}
@@ -1324,7 +1325,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
 
       {confirmarElim && (
         <ModalConfirm
-          mensaje={`¿Eliminar el lote "${confirmarElim.codigo}"? Solo es posible si no tiene plantas.`}
+          mensaje={`¿Eliminar el lote "${confirmarElim.nombre || confirmarElim.codigo}"? Solo es posible si no tiene plantas.`}
           onConfirmar={eliminarLote}
           onCancelar={() => setConfirm(null)}
           cargando={eliminando}

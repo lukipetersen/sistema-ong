@@ -85,7 +85,7 @@ router.get('/resumen', async (_req: Request, res: Response) => {
 // EGRESO  = dispensación → baja stockGramosDispensario únicamente
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { geneticaId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
+    const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
 
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
@@ -122,7 +122,8 @@ router.post('/', async (req: Request, res: Response) => {
       const mov = await tx.movimientoStock.create({
         data: {
           geneticaId,
-          asociadoId: asociadoId || null,
+          loteId:     tipo === 'INGRESO' ? (loteId || null) : null,
+          asociadoId: tipo === 'EGRESO'  ? (asociadoId || null) : null,
           tipo:       tipo as TipoMovimiento,
           seccion:    'DISPENSARIO',
           cantidadGramos: gramos,
