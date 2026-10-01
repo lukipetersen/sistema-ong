@@ -1,17 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/api'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { TrendingUp, TrendingDown, Wallet, Users, AlertCircle } from 'lucide-react'
-
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-
-function authHeaders() {
-  const token = sessionStorage.getItem('token')
-  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-}
 
 function formatPeso(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -60,11 +54,11 @@ export default function Dashboard() {
     setCargando(true)
     try {
       const [rDash, rFin] = await Promise.all([
-        fetch(`${API}/api/reportes/dashboard`, { headers: authHeaders() }),
-        fetch(`${API}/api/reportes/financiero`, { headers: authHeaders() }),
+        api.get('/reportes/dashboard'),
+        api.get('/reportes/financiero'),
       ])
-      if (rDash.ok) setData(await rDash.json())
-      if (rFin.ok)  setEvolucion((await rFin.json()).evolucion ?? [])
+      setData(rDash.data)
+      setEvolucion(rFin.data.evolucion ?? [])
     } catch { /* silencioso */ }
     finally  { setCargando(false) }
   }, [])
