@@ -82,12 +82,16 @@ export default function Dashboard() {
     : rawFin
 
   const mesLabel = (() => {
-    const hoy = new Date()
-    if (usandoMesAnt) {
-      const ant = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
-      return ant.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    // Usar evolucion (datos del servidor) para evitar desfase de timezone browser/server
+    if (usandoMesAnt && evolucion.length >= 2) {
+      const [y, m] = evolucion[evolucion.length - 2].mes.split('-').map(Number)
+      return new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
     }
-    return hoy.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    if (evolucion.length >= 1) {
+      const [y, m] = evolucion[evolucion.length - 1].mes.split('-').map(Number)
+      return new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    }
+    return new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
   })()
 
   return (
