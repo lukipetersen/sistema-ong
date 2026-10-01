@@ -41,7 +41,7 @@ router.get('/', async (_req: Request, res: Response) => {
       const plantasActivas = g.plantas.filter(p => p.estado === 'ACTIVA').length
       return {
         id: g.id, nombre: g.nombre, descripcion: g.descripcion, observaciones: g.observaciones,
-        creadoEn: g.creadoEn, stockGramos: g.stockGramos,
+        creadoEn: g.creadoEn, stockGramos: g.stockGramos, stockGramosDispensario: g.stockGramosDispensario,
         totalLotes, lotesActivos, totalPlantas, plantasActivas,
       }
     })
