@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -103,7 +104,7 @@ export default function Dashboard() {
         ) : (<>
 
           {/* Ingresos */}
-          <div className="tarjeta p-5">
+          <Link to="/finanzas?tab=ingresos" className="tarjeta p-5 block hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">Ingresos del mes</p>
               <div className="w-8 h-8 rounded-lg bg-[#edf5e0] flex items-center justify-center">
@@ -116,10 +117,10 @@ export default function Dashboard() {
                 {variacion(fin.ingresosMes, fin.ingresosAnt)!.sube ? '↑' : '↓'} {variacion(fin.ingresosMes, fin.ingresosAnt)!.pct}% vs mes anterior
               </p>
             )}
-          </div>
+          </Link>
 
           {/* Gastos */}
-          <div className="tarjeta p-5">
+          <Link to="/finanzas?tab=gastos" className="tarjeta p-5 block hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">Gastos del mes</p>
               <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
@@ -132,7 +133,7 @@ export default function Dashboard() {
                 {variacion(fin.gastosMes, fin.gastosAnt)!.sube ? '↑' : '↓'} {variacion(fin.gastosMes, fin.gastosAnt)!.pct}% vs mes anterior
               </p>
             )}
-          </div>
+          </Link>
 
           {/* Neto */}
           <div className="tarjeta p-5">

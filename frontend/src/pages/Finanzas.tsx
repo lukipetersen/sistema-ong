@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ChevronDown, AlertCircle, CheckCircle2, TrendingUp, TrendingDown, Upload, Users, RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -98,19 +99,26 @@ function Selector({ value, onChange, children }: { value: string; onChange: (v: 
 type Tab = 'gastos' | 'ingresos' | 'cuotas'
 
 export default function Finanzas() {
-  const [tab, setTab] = useState<Tab>('gastos')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab') as Tab | null
+  const [tab, setTab] = useState<Tab>(tabParam && ['gastos','ingresos','cuotas'].includes(tabParam) ? tabParam : 'gastos')
+
+  function cambiarTab(t: Tab) {
+    setTab(t)
+    setSearchParams({ tab: t }, { replace: true })
+  }
 
   return (
     <div className="space-y-6">
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-full sm:w-fit">
-        <TabBtn active={tab === 'gastos'} onClick={() => setTab('gastos')} icon={<TrendingDown className="w-4 h-4" />}>
+        <TabBtn active={tab === 'gastos'} onClick={() => cambiarTab('gastos')} icon={<TrendingDown className="w-4 h-4" />}>
           Gastos
         </TabBtn>
-        <TabBtn active={tab === 'ingresos'} onClick={() => setTab('ingresos')} icon={<TrendingUp className="w-4 h-4" />}>
+        <TabBtn active={tab === 'ingresos'} onClick={() => cambiarTab('ingresos')} icon={<TrendingUp className="w-4 h-4" />}>
           Ingresos
         </TabBtn>
-        <TabBtn active={tab === 'cuotas'} onClick={() => setTab('cuotas')} icon={<Users className="w-4 h-4" />}>
+        <TabBtn active={tab === 'cuotas'} onClick={() => cambiarTab('cuotas')} icon={<Users className="w-4 h-4" />}>
           Cuotas
         </TabBtn>
       </div>
