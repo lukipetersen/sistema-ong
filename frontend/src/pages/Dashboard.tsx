@@ -32,7 +32,7 @@ const fmtMes = (s: string) => {
 }
 
 interface DashboardData {
-  financiero: { ingresosMes: number; gastosMes: number; netoMes: number; ingresosAnt: number; gastosAnt: number }
+  financiero: { ingresosMes: number; gastosMes: number; netoMes: number; ingresosAnt: number; gastosAnt: number; netoAnt: number }
   asociados:  { activos: number; pendientes: number; inactivos: number; altasMes: number; cuotasVencidas: number }
 }
 
@@ -71,8 +71,24 @@ export default function Dashboard() {
     return { pct: Math.abs(pct).toFixed(1), sube: pct >= 0 }
   }
 
-  const fin = data?.financiero
-  const aso = data?.asociados
+  const rawFin = data?.financiero
+  const aso    = data?.asociados
+
+  // Si el mes actual no tiene datos, mostrar el mes anterior con aviso
+  const sinDatosMesActual = rawFin && rawFin.ingresosMes === 0 && rawFin.gastosMes === 0
+  const usandoMesAnt      = !!(sinDatosMesActual && (rawFin.ingresosAnt > 0 || rawFin.gastosAnt > 0))
+  const fin = rawFin && usandoMesAnt
+    ? { ingresosMes: rawFin.ingresosAnt, gastosMes: rawFin.gastosAnt, netoMes: rawFin.netoAnt, ingresosAnt: 0, gastosAnt: 0, netoAnt: 0 }
+    : rawFin
+
+  const mesLabel = (() => {
+    const hoy = new Date()
+    if (usandoMesAnt) {
+      const ant = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
+      return ant.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    }
+    return hoy.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+  })()
 
   return (
     <div className="space-y-6">
@@ -97,10 +113,19 @@ export default function Dashboard() {
           <><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
         ) : (<>
 
+          {usandoMesAnt && (
+            <div className="sm:col-span-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#fdf9ee] border border-[#e8d890] text-xs text-[#7a6840]">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Sin movimientos en el mes actual — mostrando <span className="font-semibold capitalize ml-1">{mesLabel}</span>
+            </div>
+          )}
+
           {/* Ingresos */}
           <Link to="/finanzas?tab=ingresos" className="tarjeta p-5 block hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">Ingresos del mes</p>
+              <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">
+                Ingresos — <span className="capitalize">{mesLabel}</span>
+              </p>
               <div className="w-8 h-8 rounded-lg bg-[#edf5e0] flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-[#4a7030]" />
               </div>
@@ -116,7 +141,9 @@ export default function Dashboard() {
           {/* Gastos */}
           <Link to="/finanzas?tab=gastos" className="tarjeta p-5 block hover:shadow-md transition-shadow cursor-pointer">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">Gastos del mes</p>
+              <p className="text-xs font-medium text-[#7a6840] uppercase tracking-wide">
+                Gastos — <span className="capitalize">{mesLabel}</span>
+              </p>
               <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
                 <TrendingDown className="w-4 h-4 text-red-600" />
               </div>
@@ -143,7 +170,7 @@ export default function Dashboard() {
             <p className="text-xs mt-1 text-[#9a8f78]">
               {fin.ingresosMes > 0
                 ? `${((fin.gastosMes / fin.ingresosMes) * 100).toFixed(1)}% de gasto sobre ingresos`
-                : 'Sin ingresos este mes'}
+                : usandoMesAnt ? `Resumen de ${mesLabel}` : 'Sin movimientos este mes'}
             </p>
           </div>
 
