@@ -877,7 +877,7 @@ export default function Stock() {
   // Filtros movimientos
   const [filtroGenetica, setFiltroGenetica] = useState('')
   const [filtroTipo, setFiltroTipo]         = useState('')
-  const [filtroMes, setFiltroMes]           = useState(mesActual())
+  const [filtroMes, setFiltroMes]           = useState('')
   const [page, setPage]                     = useState(1)
   const limit = 30
 
@@ -895,7 +895,7 @@ export default function Stock() {
   // Filtros subproductos
   const [filtroSub, setFiltroSub]       = useState('')
   const [filtroTipoSub, setFiltroTipoSub] = useState('')
-  const [filtroMesSub, setFiltroMesSub] = useState(mesActual())
+  const [filtroMesSub, setFiltroMesSub] = useState('')
   const [pageSub, setPageSub]           = useState(1)
   const limitSub = 30
 
@@ -1078,7 +1078,7 @@ export default function Stock() {
         </div>
         <div className="bg-white rounded-xl border border-[#ede8dc] p-4">
           <div className="flex items-center gap-2 text-[#4a7030] text-xs font-medium mb-1">
-            <TrendingUp className="w-3.5 h-3.5" /> INGRESOS ({filtroMes})
+            <TrendingUp className="w-3.5 h-3.5" /> INGRESOS ({filtroMes || 'todos'})
           </div>
           <p className="text-2xl font-bold text-[#1a1814]">{fmtStock(ingresosMes)}</p>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -1088,7 +1088,7 @@ export default function Stock() {
         </div>
         <div className="bg-white rounded-xl border border-[#ede8dc] p-4">
           <div className="flex items-center gap-2 text-red-500 text-xs font-medium mb-1">
-            <TrendingDown className="w-3.5 h-3.5" /> EGRESOS ({filtroMes})
+            <TrendingDown className="w-3.5 h-3.5" /> EGRESOS ({filtroMes || 'todos'})
           </div>
           <p className="text-2xl font-bold text-[#1a1814]">{fmtStock(egresosMes)}</p>
           <p className="text-xs text-slate-400 mt-0.5">{movimientos.filter(m => m.tipo === 'EGRESO').length} mov.</p>
@@ -1204,7 +1204,14 @@ export default function Stock() {
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             </div>
-            <input type="month" value={filtroMes} onChange={e => setFiltroMes(e.target.value)} className="campo text-sm w-full sm:w-auto" />
+            <div className="flex items-center gap-1">
+              <input type="month" value={filtroMes} onChange={e => setFiltroMes(e.target.value)} className="campo text-sm w-full sm:w-auto" />
+              {filtroMes && (
+                <button onClick={() => setFiltroMes('')} className="text-xs text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded-lg hover:bg-slate-100" title="Ver todos los meses">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           {cargando ? (
             <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
@@ -1411,7 +1418,14 @@ export default function Stock() {
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               </div>
-              <input type="month" value={filtroMesSub} onChange={e => setFiltroMesSub(e.target.value)} className="campo text-sm w-full sm:w-auto" />
+              <div className="flex items-center gap-1">
+                <input type="month" value={filtroMesSub} onChange={e => setFiltroMesSub(e.target.value)} className="campo text-sm w-full sm:w-auto" />
+                {filtroMesSub && (
+                  <button onClick={() => setFiltroMesSub('')} className="text-xs text-slate-400 hover:text-slate-700 px-1.5 py-1 rounded-lg hover:bg-slate-100" title="Ver todos los meses">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {cargandoSub ? (
