@@ -245,18 +245,22 @@ router.post('/importar', async (req: Request, res: Response) => {
         cantInsertados++
       }
 
-      // ── Recalcular stockGramos exacto por cada genética afectada ─────────
-      // (suma todos sus movimientos → garantiza consistencia sin importar historial)
+      // ── Recalcular stock exacto por cada genética afectada ───────────────
       for (const geneticaId of geneticasAfectadas) {
         const movs = await tx.movimientoStock.findMany({
           where:  { geneticaId },
-          select: { tipo: true, cantidadGramos: true },
+          select: { tipo: true, cantidadGramos: true, seccion: true },
         })
-        const stock = movs.reduce(
-          (sum, m) => sum + (m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos),
-          0
-        )
-        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: stock } })
+        let gramos = 0, gramosDisp = 0
+        for (const m of movs) {
+          if (m.seccion === 'STOCK_TOTAL') {
+            gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+          } else {
+            if (m.tipo === 'INGRESO') { gramosDisp += m.cantidadGramos }
+            else                      { gramos -= m.cantidadGramos; gramosDisp -= m.cantidadGramos }
+          }
+        }
+        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: gramos, stockGramosDispensario: gramosDisp } })
       }
     })
 
@@ -291,8 +295,10 @@ router.post('/recalcular', async (_req: Request, res: Response) => {
       if (m.seccion === 'STOCK_TOTAL') {
         s.gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
       } else {
-        if (m.tipo === 'INGRESO') { s.gramos -= m.cantidadGramos; s.gramosDisp += m.cantidadGramos }
-        else                      { s.gramosDisp -= m.cantidadGramos }
+        // DISPENSARIO INGRESO (traslado): solo sube dispensario, stock total no cambia
+        // DISPENSARIO EGRESO (dispensación): baja stock total Y dispensario
+        if (m.tipo === 'INGRESO') { s.gramosDisp += m.cantidadGramos }
+        else                      { s.gramos -= m.cantidadGramos; s.gramosDisp -= m.cantidadGramos }
       }
       stocksGenetica.set(m.geneticaId, s)
     }
@@ -417,8 +423,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
         if (m.seccion === 'STOCK_TOTAL') {
           gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
         } else {
-          if (m.tipo === 'INGRESO') { gramos -= m.cantidadGramos; gramosDisp += m.cantidadGramos }
-          else                      { gramosDisp -= m.cantidadGramos }
+          if (m.tipo === 'INGRESO') { gramosDisp += m.cantidadGramos }
+          else                      { gramos -= m.cantidadGramos; gramosDisp -= m.cantidadGramos }
         }
       }
 

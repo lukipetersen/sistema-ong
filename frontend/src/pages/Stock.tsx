@@ -20,6 +20,7 @@ interface Genetica {
 interface Movimiento {
   id: string
   tipo: 'INGRESO' | 'EGRESO'
+  seccion: 'STOCK_TOTAL' | 'DISPENSARIO'
   cantidadGramos: number
   fecha: string
   observaciones: string | null
@@ -433,10 +434,20 @@ function ModalEditarMovimiento({
         </div>
         <div className="px-6 py-5 space-y-4">
           <div className="rounded-lg bg-slate-50 px-4 py-3 flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${movimiento.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
-              {movimiento.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {movimiento.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
-            </span>
+            {movimiento.seccion === 'DISPENSARIO' && movimiento.tipo === 'INGRESO' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#fdf9ee] text-[#7a6840]">
+                <FlaskConical className="w-3 h-3" /> Traslado al Dispensario
+              </span>
+            ) : movimiento.tipo === 'INGRESO' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#edf5e0] text-[#4a7030]">
+                <TrendingUp className="w-3 h-3" /> Ingreso
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">
+                <TrendingDown className="w-3 h-3" />
+                {movimiento.seccion === 'DISPENSARIO' ? 'Egreso Dispensario' : 'Egreso'}
+              </span>
+            )}
             <span className="text-sm font-medium text-slate-700">{movimiento.genetica.nombre}</span>
           </div>
           <div>
@@ -503,10 +514,20 @@ function ModalDetalleMovimiento({ movimiento, onCerrar }: { movimiento: Movimien
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs font-medium text-slate-400 mb-0.5">Tipo</p>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${movimiento.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
-                {movimiento.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {movimiento.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
-              </span>
+              {movimiento.seccion === 'DISPENSARIO' && movimiento.tipo === 'INGRESO' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#fdf9ee] text-[#7a6840]">
+                  <FlaskConical className="w-3 h-3" /> Traslado al Dispensario
+                </span>
+              ) : movimiento.tipo === 'INGRESO' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#edf5e0] text-[#4a7030]">
+                  <TrendingUp className="w-3 h-3" /> Ingreso
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">
+                  <TrendingDown className="w-3 h-3" />
+                  {movimiento.seccion === 'DISPENSARIO' ? 'Egreso Dispensario' : 'Egreso'}
+                </span>
+              )}
             </div>
             <div>
               <p className="text-xs font-medium text-slate-400 mb-0.5">Fecha</p>
@@ -518,8 +539,8 @@ function ModalDetalleMovimiento({ movimiento, onCerrar }: { movimiento: Movimien
             </div>
             <div>
               <p className="text-xs font-medium text-slate-400 mb-0.5">Cantidad</p>
-              <p className={`text-sm font-semibold ${movimiento.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
-                {movimiento.tipo === 'EGRESO' ? '-' : '+'}{fmtStock(movimiento.cantidadGramos)}
+              <p className={`text-sm font-semibold ${movimiento.seccion === 'DISPENSARIO' && movimiento.tipo === 'INGRESO' ? 'text-[#c9b97a]' : movimiento.tipo === 'EGRESO' ? 'text-red-600' : 'text-[#4a7030]'}`}>
+                {movimiento.tipo === 'EGRESO' ? '-' : movimiento.seccion === 'DISPENSARIO' ? '→' : '+'}{fmtStock(movimiento.cantidadGramos)}
               </p>
             </div>
             {movimiento.lote && (
@@ -1033,8 +1054,12 @@ export default function Stock() {
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
-  const ingresosMes = movimientos.filter(m => m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
-  const egresosMes  = movimientos.filter(m => m.tipo === 'EGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
+  // Ingresos = solo STOCK_TOTAL INGRESO (recepción de mercadería externa)
+  // Egresos  = STOCK_TOTAL EGRESO + DISPENSARIO EGRESO (consumo real)
+  // Traslados = DISPENSARIO INGRESO (movimiento interno, no modifica el total)
+  const ingresosMes   = movimientos.filter(m => m.seccion === 'STOCK_TOTAL' && m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
+  const egresosMes    = movimientos.filter(m => m.tipo === 'EGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
+  const trasladosMes  = movimientos.filter(m => m.seccion === 'DISPENSARIO' && m.tipo === 'INGRESO').reduce((s, m) => s + m.cantidadGramos, 0)
   const stockTotal  = resumen.reduce((s, g) => s + g.stockGramos, 0)
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -1056,7 +1081,10 @@ export default function Stock() {
             <TrendingUp className="w-3.5 h-3.5" /> INGRESOS ({filtroMes})
           </div>
           <p className="text-2xl font-bold text-[#1a1814]">{fmtStock(ingresosMes)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{movimientos.filter(m => m.tipo === 'INGRESO').length} mov.</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {movimientos.filter(m => m.seccion === 'STOCK_TOTAL' && m.tipo === 'INGRESO').length} mov.
+            {trasladosMes > 0 && <span className="ml-1 text-[#c9b97a]">+{fmtStock(trasladosMes)} traslados</span>}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-[#ede8dc] p-4">
           <div className="flex items-center gap-2 text-red-500 text-xs font-medium mb-1">
@@ -1201,16 +1229,30 @@ export default function Stock() {
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{fmtFecha(m.fecha)}</td>
                       <td className="px-4 py-3 font-medium text-slate-800 hidden sm:table-cell">{m.genetica.nombre}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
-                          {m.tipo === 'INGRESO' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
-                        </span>
+                        {m.seccion === 'DISPENSARIO' && m.tipo === 'INGRESO' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#fdf9ee] text-[#7a6840]">
+                            <FlaskConical className="w-3 h-3" /> Traslado Disp.
+                          </span>
+                        ) : m.tipo === 'INGRESO' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[#edf5e0] text-[#4a7030]">
+                            <TrendingUp className="w-3 h-3" /> Ingreso
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">
+                            <TrendingDown className="w-3 h-3" />
+                            {m.seccion === 'DISPENSARIO' ? 'Egreso Disp.' : 'Egreso'}
+                          </span>
+                        )}
                         {m.asociado && (
                           <span className="ml-1 text-xs text-slate-400" title={`${m.asociado.apellido}, ${m.asociado.nombre}`}>· {m.asociado.apellido}</span>
                         )}
                       </td>
-                      <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
-                        {m.tipo === 'EGRESO' ? '-' : '+'}{fmtStock(m.cantidadGramos)}
+                      <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${
+                        m.seccion === 'DISPENSARIO' && m.tipo === 'INGRESO'
+                          ? 'text-[#c9b97a]'
+                          : m.tipo === 'EGRESO' ? 'text-red-600' : 'text-[#4a7030]'
+                      }`}>
+                        {m.tipo === 'EGRESO' ? '-' : m.seccion === 'DISPENSARIO' ? '→' : '+'}{fmtStock(m.cantidadGramos)}
                       </td>
                       <td className="px-4 py-3 text-slate-500 max-w-[200px] truncate hidden md:table-cell">{m.observaciones ?? '—'}</td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -1498,7 +1540,7 @@ export default function Stock() {
               <div>
                 <p className="font-medium text-slate-900 text-sm">¿Eliminar este movimiento?</p>
                 <p className="text-sm text-slate-500 mt-1">
-                  {confirmarElim.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'} de{' '}
+                  {confirmarElim.seccion === 'DISPENSARIO' && confirmarElim.tipo === 'INGRESO' ? 'Traslado al Dispensario' : confirmarElim.tipo === 'INGRESO' ? 'Ingreso' : confirmarElim.seccion === 'DISPENSARIO' ? 'Egreso Dispensario' : 'Egreso'} de{' '}
                   <strong>{fmtStock(confirmarElim.cantidadGramos)}</strong> de{' '}
                   <strong>{confirmarElim.genetica.nombre}</strong> el {fmtFecha(confirmarElim.fecha)}.
                   El stock se actualizará automáticamente.

@@ -103,19 +103,19 @@ router.post('/', async (req: Request, res: Response) => {
       let genetica
 
       if (tipo === 'INGRESO') {
-        // Traslado: baja del stock total, sube en dispensario
+        // Traslado al dispensario: stock total no cambia, solo sube el dispensario
+        genetica = await tx.genetica.update({
+          where: { id: geneticaId },
+          data: { stockGramosDispensario: { increment: gramos } },
+        })
+      } else {
+        // Egreso / dispensación: baja el stock total Y el dispensario
         genetica = await tx.genetica.update({
           where: { id: geneticaId },
           data: {
             stockGramos:            { decrement: gramos },
-            stockGramosDispensario: { increment: gramos },
+            stockGramosDispensario: { decrement: gramos },
           },
-        })
-      } else {
-        // Egreso: solo baja del dispensario
-        genetica = await tx.genetica.update({
-          where: { id: geneticaId },
-          data: { stockGramosDispensario: { decrement: gramos } },
         })
       }
 
@@ -168,19 +168,19 @@ router.put('/:id', async (req: Request, res: Response) => {
     const [movimiento] = await prisma.$transaction(async (tx) => {
       if (diferencia !== 0) {
         if (existing.tipo === 'INGRESO') {
-          // Traslado: ajuste en ambas columnas
+          // Traslado: solo ajuste en dispensario (stock total no se toca)
+          await tx.genetica.update({
+            where: { id: existing.geneticaId },
+            data: { stockGramosDispensario: { increment: diferencia } },
+          })
+        } else {
+          // Egreso: ajuste en stock total Y dispensario
           await tx.genetica.update({
             where: { id: existing.geneticaId },
             data: {
               stockGramos:            { decrement: diferencia },
-              stockGramosDispensario: { increment: diferencia },
+              stockGramosDispensario: { decrement: diferencia },
             },
-          })
-        } else {
-          // Egreso: solo ajuste en dispensario
-          await tx.genetica.update({
-            where: { id: existing.geneticaId },
-            data: { stockGramosDispensario: { decrement: diferencia } },
           })
         }
       }
@@ -221,19 +221,19 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     await prisma.$transaction(async (tx) => {
       if (existing.tipo === 'INGRESO') {
-        // Revertir traslado: vuelven al stock total
+        // Revertir traslado: solo baja el dispensario (stock total no se tocó)
+        await tx.genetica.update({
+          where: { id: existing.geneticaId },
+          data: { stockGramosDispensario: { decrement: existing.cantidadGramos } },
+        })
+      } else {
+        // Revertir egreso: sube stock total Y dispensario
         await tx.genetica.update({
           where: { id: existing.geneticaId },
           data: {
             stockGramos:            { increment: existing.cantidadGramos },
-            stockGramosDispensario: { decrement: existing.cantidadGramos },
+            stockGramosDispensario: { increment: existing.cantidadGramos },
           },
-        })
-      } else {
-        // Revertir egreso: vuelven al dispensario
-        await tx.genetica.update({
-          where: { id: existing.geneticaId },
-          data: { stockGramosDispensario: { increment: existing.cantidadGramos } },
         })
       }
       await tx.movimientoStock.delete({ where: { id: req.params.id } })
