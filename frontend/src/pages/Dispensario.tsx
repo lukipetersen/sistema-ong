@@ -96,8 +96,9 @@ function ModalMovimiento({
     }
   }
 
+  const tieneStockTotal = (gen?.stockGramos ?? 0) > 0
   const tipoOpciones: { value: 'INGRESO' | 'EGRESO'; label: string; desc: string }[] = [
-    ...(puedeIngreso ? [{ value: 'INGRESO' as const, label: 'Traslado desde Stock Total', desc: 'Mueve kg del inventario al dispensario' }] : []),
+    ...(puedeIngreso && tieneStockTotal ? [{ value: 'INGRESO' as const, label: 'Traslado desde Stock Total', desc: 'Mueve kg del inventario al dispensario' }] : []),
     { value: 'EGRESO' as const, label: 'Egreso / Dispensación', desc: 'Entrega a un asociado o consumo' },
   ]
 

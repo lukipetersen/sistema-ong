@@ -342,8 +342,8 @@ function ModalMovimiento({
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="campo w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Observaciones</label>
-            <textarea value={observaciones} onChange={e => setObs(e.target.value)} rows={2} placeholder="Motivo, proveedor, etc." className="campo w-full resize-none" />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Origen / detalle</label>
+            <textarea value={observaciones} onChange={e => setObs(e.target.value)} rows={2} placeholder="Proveedor, origen del stock, etc." className="campo w-full resize-none" />
           </div>
           {tipo === 'EGRESO' && (
             <div>
@@ -909,7 +909,7 @@ export default function Stock() {
   const cargarMovimientos = useCallback(async () => {
     setCargando(true)
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+      const params = new URLSearchParams({ page: String(page), limit: String(limit), seccion: 'STOCK_TOTAL' })
       if (filtroGenetica) params.set('geneticaId', filtroGenetica)
       if (filtroTipo)     params.set('tipo', filtroTipo)
       if (filtroMes)      params.set('mes', filtroMes)
@@ -1226,7 +1226,7 @@ export default function Stock() {
                     <th className="px-4 py-3 text-left hidden sm:table-cell">Genética</th>
                     <th className="px-4 py-3 text-left">Tipo</th>
                     <th className="px-4 py-3 text-right">Cantidad</th>
-                    <th className="px-4 py-3 text-left hidden md:table-cell">Observaciones</th>
+                    <th className="px-4 py-3 text-left hidden md:table-cell">Origen / detalle</th>
                     <th className="px-4 py-3 w-24" />
                   </tr>
                 </thead>
@@ -1261,7 +1261,15 @@ export default function Stock() {
                       }`}>
                         {m.tipo === 'EGRESO' ? '-' : m.seccion === 'DISPENSARIO' ? '→' : '+'}{fmtStock(m.cantidadGramos)}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 max-w-[200px] truncate hidden md:table-cell">{m.observaciones ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-500 max-w-[200px] hidden md:table-cell">
+                        {m.lote ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">
+                            📦 {m.lote.codigo}
+                          </span>
+                        ) : (
+                          <span className="truncate block">{m.observaciones ?? '—'}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
                           <button onClick={() => setDetalleMov(m)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50">

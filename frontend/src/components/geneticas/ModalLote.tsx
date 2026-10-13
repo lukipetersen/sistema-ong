@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 import type { Lote } from '../../types/geneticas'
-import { SALA_LABELS, ESTADO_LOTE_LABELS } from '../../types/geneticas'
+import { SALA_LABELS } from '../../types/geneticas'
 
 const schemaCrear = z.object({
   sala:             z.enum(['SALA_1', 'SALA_2']),
@@ -17,7 +17,6 @@ const schemaEditar = z.object({
   sala:               z.enum(['SALA_1', 'SALA_2']),
   fechaInicio:        z.string().min(1, 'La fecha de inicio es obligatoria'),
   fechaFinalizacion:  z.string().optional(),
-  estado:             z.enum(['PRODUCCION', 'ACTIVO', 'FINALIZADO', 'DESCARTADO', 'ARCHIVADO']),
   observaciones:      z.string().max(1000).optional(),
 })
 
@@ -45,7 +44,6 @@ export default function ModalLote({ lote, geneticaNombre, onGuardar, onCerrar, c
           sala:              lote.sala,
           fechaInicio:       lote.fechaInicio.slice(0, 10),
           fechaFinalizacion: lote.fechaFinalizacion?.slice(0, 10) ?? '',
-          estado:            lote.estado,
           observaciones:     lote.observaciones ?? '',
         }
       : {
@@ -62,7 +60,6 @@ export default function ModalLote({ lote, geneticaNombre, onGuardar, onCerrar, c
         sala:              lote.sala,
         fechaInicio:       lote.fechaInicio.slice(0, 10),
         fechaFinalizacion: lote.fechaFinalizacion?.slice(0, 10) ?? '',
-        estado:            lote.estado,
         observaciones:     lote.observaciones ?? '',
       })
     }
@@ -117,26 +114,13 @@ export default function ModalLote({ lote, geneticaNombre, onGuardar, onCerrar, c
           </div>
 
           {esEdicion && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Fecha fin</label>
-                <input
-                  type="date"
-                  {...register('fechaFinalizacion' as keyof FormData)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Estado</label>
-                <select
-                  {...register('estado' as keyof FormData)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-                >
-                  {Object.entries(ESTADO_LOTE_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Fecha fin</label>
+              <input
+                type="date"
+                {...register('fechaFinalizacion' as keyof FormData)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
             </div>
           )}
 
