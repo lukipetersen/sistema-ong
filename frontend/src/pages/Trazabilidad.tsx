@@ -131,7 +131,7 @@ function ModalNuevoLote({
   geneticasDisponibles, onGuardar, onCerrar, cargando, salaLabels,
 }: {
   geneticasDisponibles: Genetica[]
-  onGuardar: (data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) => Promise<void>
+  onGuardar: (data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number; stockFinalGramos?: number; geneticaIdStock?: string }) => Promise<void>
   onCerrar: () => void
   cargando: boolean
   salaLabels?: Record<string, string>
@@ -143,11 +143,20 @@ function ModalNuevoLote({
   const [observaciones, setObs]     = useState('')
   const [geneticaIds, setGIds]      = useState<string[]>([])
   const [cantPlantas, setCant]      = useState(0)
+  const [stockFinal, setStockFinal] = useState(0)
+  const [gIdStock, setGIdStock]     = useState('')
   const [error, setError]           = useState('')
 
   async function submit() {
     if (!sala || !fechaInicio) { setError('Sala y fecha inicio son obligatorios'); return }
-    await onGuardar({ sala, nombre, fechaInicio, observaciones, geneticaIds, cantidadPlantas: cantPlantas })
+    if (stockFinal > 0 && geneticaIds.length > 1 && !gIdStock) {
+      setError('Seleccioná la genética a la que pertenece el stock de cosecha'); return
+    }
+    await onGuardar({
+      sala, nombre, fechaInicio, observaciones, geneticaIds, cantidadPlantas: cantPlantas,
+      stockFinalGramos: stockFinal > 0 ? stockFinal : undefined,
+      geneticaIdStock:  stockFinal > 0 ? (gIdStock || geneticaIds[0]) : undefined,
+    })
   }
 
   function toggleGenetica(id: string) {
@@ -219,6 +228,27 @@ function ModalNuevoLote({
           </div>
 
           <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Stock final de cosecha (opcional)</label>
+            <input type="number" min={0} value={stockFinal} onChange={e => setStockFinal(Number(e.target.value))}
+              placeholder="0"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-gray-500">En gramos. Si ingresás un valor, se registra como ingreso en Stock Total vinculado a este lote.</p>
+          </div>
+
+          {stockFinal > 0 && geneticaIds.length > 1 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Genética del stock</label>
+              <select value={gIdStock} onChange={e => setGIdStock(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
+                <option value="">Seleccioná una genética...</option>
+                {geneticasDisponibles.filter(g => geneticaIds.includes(g.id)).map(g => (
+                  <option key={g.id} value={g.id}>{g.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Observaciones</label>
             <textarea value={observaciones} onChange={e => setObs(e.target.value)} rows={2}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none"
@@ -260,11 +290,10 @@ function ModalEditarLote({ lote, onGuardar, onCerrar, cargando, salaLabels }: {
   const [nombre, setNombre]       = useState(lote.nombre ?? '')
   const [fechaInicio, setFecha]   = useState(lote.fechaInicio.slice(0, 10))
   const [fechaFin, setFechaFin]   = useState(lote.fechaFinalizacion?.slice(0, 10) ?? '')
-  const [estado, setEstado]       = useState(lote.estado)
   const [obs, setObs]             = useState(lote.observaciones ?? '')
 
   async function submit() {
-    await onGuardar({ sala, nombre: nombre || null, fechaInicio, fechaFinalizacion: fechaFin || null, estado, observaciones: obs || null })
+    await onGuardar({ sala, nombre: nombre || null, fechaInicio, fechaFinalizacion: fechaFin || null, observaciones: obs || null })
   }
 
   return (
@@ -275,21 +304,12 @@ function ModalEditarLote({ lote, onGuardar, onCerrar, cargando, salaLabels }: {
           <button onClick={onCerrar} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="space-y-4 p-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Sala</label>
-              <select value={sala} onChange={e => setSala(e.target.value as Lote['sala'])}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
-                {Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Estado</label>
-              <select value={estado} onChange={e => setEstado(e.target.value as Lote['estado'])}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
-                {Object.entries(ESTADO_LOTE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Sala</label>
+            <select value={sala} onChange={e => setSala(e.target.value as Lote['sala'])}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none">
+              {Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Nombre del lote (opcional)</label>
@@ -1132,7 +1152,7 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
     )
   }
 
-  async function crearLote(data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number }) {
+  async function crearLote(data: { sala: string; nombre: string; fechaInicio: string; observaciones: string; geneticaIds: string[]; cantidadPlantas: number; stockFinalGramos?: number; geneticaIdStock?: string }) {
     setGuardando(true)
     try {
       const r = await fetch(`${API}/api/lotes`, {

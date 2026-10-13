@@ -177,6 +177,8 @@ router.post('/', async (req: Request, res: Response) => {
       sala, fechaInicio, observaciones, nombre,
       geneticaIds = [] as string[],
       cantidadPlantas = 0,
+      stockFinalGramos,
+      geneticaIdStock,
     } = req.body
 
     if (!sala || !fechaInicio) {
@@ -184,6 +186,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const codigo = await generarCodigoLote(sala)
+    const usuarioId = req.usuarioId ?? null
 
     const lote = await prisma.$transaction(async (tx) => {
       const nuevo = await tx.lote.create({
@@ -227,11 +230,41 @@ router.post('/', async (req: Request, res: Response) => {
         }
       }
 
+      // Stock final de cosecha: crea un movimiento STOCK_TOTAL INGRESO vinculado al lote
+      const gramsStock = Number(stockFinalGramos ?? 0)
+      const gIdStock: string | null =
+        geneticaIdStock ||
+        (Array.isArray(geneticaIds) && geneticaIds.length === 1 ? geneticaIds[0] : null)
+
+      if (gramsStock > 0 && gIdStock) {
+        await tx.movimientoStock.create({
+          data: {
+            geneticaId:     gIdStock,
+            loteId:         nuevo.id,
+            tipo:           'INGRESO',
+            seccion:        'STOCK_TOTAL',
+            cantidadGramos: gramsStock,
+            fecha:          new Date(),
+            observaciones:  `Cosecha final — lote ${codigo}`,
+            usuarioId,
+          },
+        })
+        await tx.genetica.update({
+          where: { id: gIdStock },
+          data:  { stockGramos: { increment: gramsStock } },
+        })
+        await tx.loteGenetica.upsert({
+          where:  { loteId_geneticaId: { loteId: nuevo.id, geneticaId: gIdStock } },
+          update: { stockGramos: { increment: gramsStock } },
+          create: { loteId: nuevo.id, geneticaId: gIdStock, stockGramos: gramsStock },
+        })
+      }
+
       await tx.historialLote.create({
         data: {
           loteId:   nuevo.id,
           accion:   'CREADO',
-          detalles: `Genéticas: ${geneticaIds.length}${totalPlantas > 0 ? `, ${totalPlantas} plantas` : ''}`,
+          detalles: `Genéticas: ${geneticaIds.length}${totalPlantas > 0 ? `, ${totalPlantas} plantas` : ''}${gramsStock > 0 ? `, ${gramsStock}g stock` : ''}`,
         },
       })
 

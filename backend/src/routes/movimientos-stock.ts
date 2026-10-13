@@ -249,18 +249,19 @@ router.post('/importar', async (req: Request, res: Response) => {
       for (const geneticaId of geneticasAfectadas) {
         const movs = await tx.movimientoStock.findMany({
           where:  { geneticaId },
-          select: { tipo: true, cantidadGramos: true, seccion: true },
+          select: { tipo: true, seccion: true, cantidadGramos: true },
         })
-        let gramos = 0, gramosDisp = 0
+        let stock = 0
+        let stockDisp = 0
         for (const m of movs) {
           if (m.seccion === 'STOCK_TOTAL') {
-            gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
-          } else {
-            if (m.tipo === 'INGRESO') { gramosDisp += m.cantidadGramos }
-            else                      { gramos -= m.cantidadGramos; gramosDisp -= m.cantidadGramos }
+            stock += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+          } else if (m.seccion === 'DISPENSARIO') {
+            if (m.tipo === 'INGRESO') { stock -= m.cantidadGramos; stockDisp += m.cantidadGramos }
+            else { stockDisp -= m.cantidadGramos }
           }
         }
-        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: gramos, stockGramosDispensario: gramosDisp } })
+        await tx.genetica.update({ where: { id: geneticaId }, data: { stockGramos: stock, stockGramosDispensario: stockDisp } })
       }
     })
 
@@ -281,29 +282,31 @@ router.post('/importar', async (req: Request, res: Response) => {
 router.post('/recalcular', async (_req: Request, res: Response) => {
   try {
     const [movimientos, geneticas, loteGeneticas] = await Promise.all([
-      prisma.movimientoStock.findMany({ select: { geneticaId: true, loteId: true, tipo: true, cantidadGramos: true, seccion: true } }),
+      prisma.movimientoStock.findMany({ select: { geneticaId: true, loteId: true, tipo: true, seccion: true, cantidadGramos: true } }),
       prisma.genetica.findMany({ select: { id: true } }),
       prisma.loteGenetica.findMany({ select: { loteId: true, geneticaId: true } }),
     ])
 
-    type Stocks = { gramos: number; gramosDisp: number }
-    const stocksGenetica = new Map<string, Stocks>()
-    for (const g of geneticas) stocksGenetica.set(g.id, { gramos: 0, gramosDisp: 0 })
-
+    // stockGramos: +STOCK_TOTAL_INGRESO, -STOCK_TOTAL_EGRESO, -DISPENSARIO_INGRESO, 0 for DISPENSARIO_EGRESO
+    const stocksGenetica     = new Map<string, number>()
+    // stockGramosDispensario: +DISPENSARIO_INGRESO, -DISPENSARIO_EGRESO
+    const stocksGeneticaDisp = new Map<string, number>()
     for (const m of movimientos) {
-      const s = stocksGenetica.get(m.geneticaId) ?? { gramos: 0, gramosDisp: 0 }
+      let delta = 0
       if (m.seccion === 'STOCK_TOTAL') {
-        s.gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
-      } else {
-        // DISPENSARIO INGRESO (traslado): solo sube dispensario, stock total no cambia
-        // DISPENSARIO EGRESO (dispensación): baja stock total Y dispensario
-        if (m.tipo === 'INGRESO') { s.gramosDisp += m.cantidadGramos }
-        else                      { s.gramos -= m.cantidadGramos; s.gramosDisp -= m.cantidadGramos }
+        delta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+      } else if (m.seccion === 'DISPENSARIO' && m.tipo === 'INGRESO') {
+        delta = -m.cantidadGramos
       }
-      stocksGenetica.set(m.geneticaId, s)
+      stocksGenetica.set(m.geneticaId, (stocksGenetica.get(m.geneticaId) ?? 0) + delta)
+
+      if (m.seccion === 'DISPENSARIO') {
+        const dispDelta = m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
+        stocksGeneticaDisp.set(m.geneticaId, (stocksGeneticaDisp.get(m.geneticaId) ?? 0) + dispDelta)
+      }
     }
 
-    // Lote-genetica: solo movimientos STOCK_TOTAL
+    // Calculate lote-genetica stocks (only STOCK_TOTAL movements)
     const stocksLoteGenetica = new Map<string, number>()
     for (const m of movimientos) {
       if (!m.loteId || m.seccion !== 'STOCK_TOTAL') continue
@@ -317,7 +320,10 @@ router.post('/recalcular', async (_req: Request, res: Response) => {
         const s = stocksGenetica.get(g.id) ?? { gramos: 0, gramosDisp: 0 }
         await tx.genetica.update({
           where: { id: g.id },
-          data:  { stockGramos: s.gramos, stockGramosDispensario: s.gramosDisp },
+          data:  {
+            stockGramos:            stocksGenetica.get(g.id)     ?? 0,
+            stockGramosDispensario: stocksGeneticaDisp.get(g.id) ?? 0,
+          },
         })
       }
       for (const lg of loteGeneticas) {

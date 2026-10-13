@@ -103,19 +103,24 @@ router.post('/', async (req: Request, res: Response) => {
       let genetica
 
       if (tipo === 'INGRESO') {
-        // Traslado al dispensario: stock total no cambia, solo sube el dispensario
-        genetica = await tx.genetica.update({
-          where: { id: geneticaId },
-          data: { stockGramosDispensario: { increment: gramos } },
-        })
-      } else {
-        // Egreso / dispensación: baja el stock total Y el dispensario
+        const stockCheck = await tx.genetica.findUnique({ where: { id: geneticaId }, select: { stockGramos: true } })
+        const stockDisponible = Number(stockCheck?.stockGramos ?? 0)
+        if (stockDisponible < gramos) {
+          throw new Error(`Stock insuficiente en Stock Total. Disponible: ${stockDisponible}g, solicitado: ${gramos}g`)
+        }
+        // Traslado: baja del stock total, sube en dispensario
         genetica = await tx.genetica.update({
           where: { id: geneticaId },
           data: {
             stockGramos:            { decrement: gramos },
-            stockGramosDispensario: { decrement: gramos },
+            stockGramosDispensario: { increment: gramos },
           },
+        })
+      } else {
+        // Egreso: solo baja del dispensario
+        genetica = await tx.genetica.update({
+          where: { id: geneticaId },
+          data: { stockGramosDispensario: { decrement: gramos } },
         })
       }
 
