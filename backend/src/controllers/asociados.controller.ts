@@ -96,10 +96,27 @@ async function recalcularEstadoCuota(asociadoId: string) {
     .filter(p => p.mesCuota === mesActual)
     .reduce((s, p) => s + Number(p.monto), 0)
 
-  let nuevoEstado: 'AL_DIA' | 'PARCIAL' | 'PENDIENTE'
+  // Mitiga EL-3: envejecimiento automático PENDIENTE → VENCIDA
+  let nuevoEstado: 'AL_DIA' | 'PARCIAL' | 'PENDIENTE' | 'VENCIDA'
   if (totalPagado >= cuota)  nuevoEstado = 'AL_DIA'
   else if (totalPagado > 0)  nuevoEstado = 'PARCIAL'
-  else                       nuevoEstado = 'PENDIENTE'
+  else {
+    // Si hay historial de pagos, detectar gap ≥ 2 meses sin pagar
+    // Ej: último pago 2026-05, hoy 2026-07 → dif=2 → VENCIDA (se saltó junio)
+    const ultimoMesPagado = asociado.pagos
+      .filter(p => p.mesCuota)
+      .map(p => p.mesCuota as string)
+      .sort()
+      .at(-1)
+
+    if (ultimoMesPagado) {
+      const [anioU, mesU] = ultimoMesPagado.split('-').map(Number)
+      const [anioA, mesA] = mesActual.split('-').map(Number)
+      nuevoEstado = (anioA - anioU) * 12 + (mesA - mesU) >= 2 ? 'VENCIDA' : 'PENDIENTE'
+    } else {
+      nuevoEstado = 'PENDIENTE' // nunca pagó — no está vencido todavía
+    }
+  }
 
   await prisma.asociado.update({
     where: { id: asociadoId },

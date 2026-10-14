@@ -4,6 +4,7 @@ import {
   Trash2, X, AlertCircle, ChevronDown, Loader2,
   RefreshCw, Settings, CheckCircle2, FlaskConical, Pencil, Eye,
 } from 'lucide-react'
+import axios from 'axios'
 import { api } from '@/lib/api'
 import { autoImportarMovimientos, ResultadoImportStock } from '@/utils/stock-import'
 
@@ -906,16 +907,19 @@ export default function Stock() {
     setResumen(data)
   }, [])
 
-  const cargarMovimientos = useCallback(async () => {
+  // Mitiga RR-2: acepta AbortSignal para cancelar peticiones en vuelo
+  const cargarMovimientos = useCallback(async (signal?: AbortSignal) => {
     setCargando(true)
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(limit), seccion: 'STOCK_TOTAL' })
       if (filtroGenetica) params.set('geneticaId', filtroGenetica)
       if (filtroTipo)     params.set('tipo', filtroTipo)
       if (filtroMes)      params.set('mes', filtroMes)
-      const { data } = await api.get(`/movimientos-stock?${params}`)
+      const { data } = await api.get(`/movimientos-stock?${params}`, { signal })
       setMovimientos(data.movimientos)
       setTotalMov(data.total)
+    } catch (e) {
+      if (!axios.isCancel(e)) throw e
     } finally {
       setCargando(false)
     }
@@ -1013,7 +1017,12 @@ export default function Stock() {
   }, [])
 
   useEffect(() => { setPage(1) }, [filtroGenetica, filtroTipo, filtroMes])
-  useEffect(() => { cargarMovimientos() }, [cargarMovimientos])
+  // Mitiga RR-2: cancela la petición si los filtros cambian antes de que responda
+  useEffect(() => {
+    const controller = new AbortController()
+    cargarMovimientos(controller.signal)
+    return () => controller.abort()
+  }, [cargarMovimientos])
   useEffect(() => { setPageSub(1) }, [filtroSub, filtroTipoSub, filtroMesSub])
   useEffect(() => { cargarMovSub() }, [cargarMovSub])
 
