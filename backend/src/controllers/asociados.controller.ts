@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-import { z } from 'zod'
+import { z, ZodError } from 'zod'
+import { Prisma } from '@prisma/client'
 import prisma from '../lib/prisma'
 
 // ─── Schemas de validación ────────────────────────────────────────────────────
@@ -337,64 +338,81 @@ export async function listarPagos(req: Request, res: Response) {
 }
 
 export async function crearPago(req: Request, res: Response) {
-  const datos = esquemaPago.parse(req.body)
+  try {
+    const datos = esquemaPago.parse(req.body)
 
-  const asociado = await prisma.asociado.findUnique({
-    where: { id: req.params.id },
-    select: { nombre: true, apellido: true },
-  })
+    const asociado = await prisma.asociado.findUnique({
+      where: { id: req.params.id },
+      select: { nombre: true, apellido: true },
+    })
 
-  // Mes al que aplica (default: mes del pago)
-  const fechaPago  = new Date(datos.fecha)
-  const mesCuota   = datos.mesCuota ||
-    `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`
+    const fechaPago = new Date(datos.fecha)
+    const mesCuota  = datos.mesCuota ||
+      `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}`
 
-  const descripcionIngreso = datos.concepto ||
-    `Cuota ${mesCuota} — ${asociado?.apellido}, ${asociado?.nombre}`
+    const descripcionIngreso = datos.concepto ||
+      `Cuota ${mesCuota} — ${asociado?.apellido}, ${asociado?.nombre}`
 
-  // Crear ingreso primero para obtener su ID
-  const ingreso = await prisma.ingreso.create({
-    data: {
-      fecha:         fechaPago,
-      tipo:          'CUOTA',
-      categoria:     'FIJO',
-      descripcion:   descripcionIngreso,
-      monto:         datos.monto,
-      estado:        'COBRADO',
-      observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
-    },
-  })
+    // Mitiga RC-3: ambas escrituras en una transacción — si PagoAsociado falla, el Ingreso hace rollback
+    const pago = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const ingreso = await tx.ingreso.create({
+        data: {
+          fecha:         fechaPago,
+          tipo:          'CUOTA',
+          categoria:     'FIJO',
+          descripcion:   descripcionIngreso,
+          monto:         datos.monto,
+          estado:        'COBRADO',
+          observaciones: `Asociado: ${asociado?.apellido}, ${asociado?.nombre}`,
+        },
+      })
 
-  const pago = await prisma.pagoAsociado.create({
-    data: {
-      asociadoId: req.params.id,
-      monto:      datos.monto,
-      fecha:      fechaPago,
-      mesCuota,
-      concepto:   datos.concepto  || null,
-      medioPago:  datos.medioPago || null,
-      ingresoId:  ingreso.id,
-    },
-  })
+      return tx.pagoAsociado.create({
+        data: {
+          asociadoId: req.params.id,
+          monto:      datos.monto,
+          fecha:      fechaPago,
+          mesCuota,
+          concepto:   datos.concepto  || null,
+          medioPago:  datos.medioPago || null,
+          ingresoId:  ingreso.id,
+        },
+      })
+    })
 
-  await recalcularEstadoCuota(req.params.id)
+    // Fuera de la transacción: solo se ejecuta si ambas escrituras fueron exitosas
+    await recalcularEstadoCuota(req.params.id)
 
-  res.status(201).json(pago)
+    res.status(201).json(pago)
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return res.status(400).json({ error: e.errors[0]?.message ?? 'Datos inválidos' })
+    }
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Error al crear pago' })
+  }
 }
 
 export async function eliminarPago(req: Request, res: Response) {
-  // Obtener el pago para saber si tiene ingreso vinculado
-  const pago = await prisma.pagoAsociado.findUnique({ where: { id: req.params.pid } })
+  try {
+    // Mitiga RR-3: todo en una transacción con orden correcto — pago primero, ingreso después
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const pago = await tx.pagoAsociado.findUnique({ where: { id: req.params.pid } })
+      if (!pago) throw new Error('Pago no encontrado')
 
-  await prisma.pagoAsociado.delete({ where: { id: req.params.pid } })
+      await tx.pagoAsociado.delete({ where: { id: req.params.pid } })
 
-  // Eliminar el ingreso vinculado si existe
-  if (pago?.ingresoId) {
-    await prisma.ingreso.delete({ where: { id: pago.ingresoId } }).catch(() => {})
+      // El .catch() fue eliminado: si falla la eliminación del Ingreso, toda la tx hace rollback
+      if (pago.ingresoId) {
+        await tx.ingreso.delete({ where: { id: pago.ingresoId } })
+      }
+    })
+
+    await recalcularEstadoCuota(req.params.id)
+    res.json({ ok: true })
+  } catch (e) {
+    const status = e instanceof Error && e.message === 'Pago no encontrado' ? 404 : 500
+    res.status(status).json({ error: e instanceof Error ? e.message : 'Error al eliminar pago' })
   }
-
-  await recalcularEstadoCuota(req.params.id)
-  res.json({ ok: true })
 }
 
 // ─── Cuotas por mes ───────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { TipoMovimiento, SeccionStock } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { autenticar, autorizar } from '../middleware/auth'
+import { recalcularStockGenetica, recalcularLoteGenetica } from '../lib/stock'
 
 const router = Router()
 router.use(autenticar)
@@ -418,37 +419,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const result = await prisma.$transaction(async (tx) => {
       const mov = await tx.movimientoStock.delete({ where: { id: req.params.id } })
 
-      // Recalculate from scratch for this genetics (both counters)
-      const movs = await tx.movimientoStock.findMany({
-        where:  { geneticaId: mov.geneticaId },
-        select: { tipo: true, cantidadGramos: true, seccion: true, loteId: true },
-      })
-
-      let gramos = 0, gramosDisp = 0
-      for (const m of movs) {
-        if (m.seccion === 'STOCK_TOTAL') {
-          gramos += m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos
-        } else {
-          if (m.tipo === 'INGRESO') { gramosDisp += m.cantidadGramos }
-          else                      { gramos -= m.cantidadGramos; gramosDisp -= m.cantidadGramos }
-        }
-      }
-
-      await tx.genetica.update({
-        where: { id: mov.geneticaId },
-        data:  { stockGramos: gramos, stockGramosDispensario: gramosDisp },
-      })
-
-      // Recalculate loteGenetica if movement had loteId
-      if (mov.loteId) {
-        const loteMovs = movs.filter(m => m.loteId === mov.loteId && m.seccion === 'STOCK_TOTAL')
-        const loteStock = loteMovs.reduce((s, m) => s + (m.tipo === 'INGRESO' ? m.cantidadGramos : -m.cantidadGramos), 0)
-        await tx.loteGenetica.upsert({
-          where:  { loteId_geneticaId: { loteId: mov.loteId, geneticaId: mov.geneticaId } },
-          update: { stockGramos: loteStock },
-          create: { loteId: mov.loteId, geneticaId: mov.geneticaId, stockGramos: loteStock },
-        })
-      }
+      // Mitiga RC-4: reemplaza el loop inline incorrecto por la fuente única de verdad
+      const { gramos, gramosDisp } = await recalcularStockGenetica(tx, mov.geneticaId)
+      if (mov.loteId) await recalcularLoteGenetica(tx, mov.loteId, mov.geneticaId)
 
       return { gramos, gramosDisp }
     })

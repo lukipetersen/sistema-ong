@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { TipoMovimiento } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { autenticar, tieneModulo } from '../middleware/auth'
+import { recalcularStockGenetica } from '../lib/stock'
 
 const router = Router()
 router.use(autenticar)
@@ -168,28 +169,10 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (existing.seccion !== 'DISPENSARIO') return res.status(400).json({ error: 'Este movimiento no es de dispensario' })
 
     const gramosNuevos = cantidadGramos ? Math.round(Number(cantidadGramos)) : existing.cantidadGramos
-    const diferencia   = gramosNuevos - existing.cantidadGramos
 
-    const [movimiento] = await prisma.$transaction(async (tx) => {
-      if (diferencia !== 0) {
-        if (existing.tipo === 'INGRESO') {
-          // Traslado: solo ajuste en dispensario (stock total no se toca)
-          await tx.genetica.update({
-            where: { id: existing.geneticaId },
-            data: { stockGramosDispensario: { increment: diferencia } },
-          })
-        } else {
-          // Egreso: ajuste en stock total Y dispensario
-          await tx.genetica.update({
-            where: { id: existing.geneticaId },
-            data: {
-              stockGramos:            { decrement: diferencia },
-              stockGramosDispensario: { decrement: diferencia },
-            },
-          })
-        }
-      }
-
+    // Mitiga RC-2: reemplaza la lógica incremental errónea por recálculo desde cero
+    const movimiento = await prisma.$transaction(async (tx) => {
+      // 1. Actualizar el registro del movimiento con los nuevos valores
       const mov = await tx.movimientoStock.update({
         where: { id: req.params.id },
         data: {
@@ -204,7 +187,18 @@ router.put('/:id', async (req: Request, res: Response) => {
           asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
       })
-      return [mov]
+
+      // 2. Recalcular ambos contadores desde el historial completo
+      const { gramos, gramosDisp } = await recalcularStockGenetica(tx, existing.geneticaId)
+
+      // 3. Caso borde (mitiga EL-4): si algún contador quedó negativo, Prisma hace rollback automático
+      if (gramos < 0 || gramosDisp < 0) {
+        throw new Error(
+          `La edición dejaría stock negativo: stockTotal=${gramos}g, stockDispensario=${gramosDisp}g`,
+        )
+      }
+
+      return mov
     })
 
     res.json(movimiento)
@@ -224,24 +218,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (!existing) return res.status(404).json({ error: 'Movimiento no encontrado' })
     if (existing.seccion !== 'DISPENSARIO') return res.status(400).json({ error: 'Este movimiento no es de dispensario' })
 
+    // Mitiga RC-2: reemplaza la lógica incremental errónea por recálculo desde cero
     await prisma.$transaction(async (tx) => {
-      if (existing.tipo === 'INGRESO') {
-        // Revertir traslado: solo baja el dispensario (stock total no se tocó)
-        await tx.genetica.update({
-          where: { id: existing.geneticaId },
-          data: { stockGramosDispensario: { decrement: existing.cantidadGramos } },
-        })
-      } else {
-        // Revertir egreso: sube stock total Y dispensario
-        await tx.genetica.update({
-          where: { id: existing.geneticaId },
-          data: {
-            stockGramos:            { increment: existing.cantidadGramos },
-            stockGramosDispensario: { increment: existing.cantidadGramos },
-          },
-        })
-      }
+      // 1. Eliminar el movimiento primero
       await tx.movimientoStock.delete({ where: { id: req.params.id } })
+      // 2. Recalcular ambos contadores sobre el historial restante
+      await recalcularStockGenetica(tx, existing.geneticaId)
     })
 
     res.json({ ok: true })
