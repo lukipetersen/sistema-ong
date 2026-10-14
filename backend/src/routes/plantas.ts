@@ -108,9 +108,11 @@ router.post('/', async (req: Request, res: Response) => {
       })
     }
 
-    const codigo = await generarCodigoPlanta(loteId, geneticaId)
-
-    const planta = await prisma.planta.create({
+    // Mitiga EL-1: reintento ante colisión de código único bajo concurrencia (P2002)
+    let _plantaIntento = 0
+    let codigo = await generarCodigoPlanta(loteId, geneticaId)
+    // eslint-disable-next-line no-constant-condition
+    const planta = await (async () => { for (;;) { try { return await prisma.planta.create({
       data: {
         codigo,
         loteId,
@@ -121,7 +123,8 @@ router.post('/', async (req: Request, res: Response) => {
       include: {
         genetica: { select: { id: true, nombre: true } },
       },
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) } catch (e: any) { if (e?.code === 'P2002' && ++_plantaIntento < 3) { codigo = await generarCodigoPlanta(loteId, geneticaId); continue } throw e } } })()
     res.status(201).json(planta)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : ''

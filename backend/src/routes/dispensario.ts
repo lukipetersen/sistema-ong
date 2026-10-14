@@ -101,28 +101,33 @@ router.post('/', async (req: Request, res: Response) => {
     const usuarioId = req.usuarioId ?? null
 
     const [movimiento, stockActual] = await prisma.$transaction(async (tx) => {
-      let genetica
+      let stockGramosDispensario: number
 
       if (tipo === 'INGRESO') {
-        const stockCheck = await tx.genetica.findUnique({ where: { id: geneticaId }, select: { stockGramos: true } })
-        const stockDisponible = Number(stockCheck?.stockGramos ?? 0)
-        if (stockDisponible < gramos) {
-          throw new Error(`Stock insuficiente en Stock Total. Disponible: ${stockDisponible}g, solicitado: ${gramos}g`)
+        // Mitiga RC-1: UPDATE condicional atómico — sin SELECT previo no hay ventana de race condition
+        // bajo READ COMMITTED. El UPDATE solo se ejecuta si stockGramos >= gramos (condición AND).
+        const rows = await tx.$queryRaw<{ stockGramosDispensario: number }[]>`
+          UPDATE "geneticas"
+          SET    "stockGramos"            = "stockGramos" - ${gramos},
+                 "stockGramosDispensario" = "stockGramosDispensario" + ${gramos}
+          WHERE  id = ${geneticaId}::text
+            AND  "stockGramos" >= ${gramos}
+          RETURNING "stockGramosDispensario"
+        `
+        if (rows.length === 0) {
+          const actual = await tx.genetica.findUnique({ where: { id: geneticaId }, select: { stockGramos: true } })
+          throw new Error(
+            `Stock insuficiente en Stock Total. Disponible: ${Number(actual?.stockGramos ?? 0)}g, solicitado: ${gramos}g`,
+          )
         }
-        // Traslado: baja del stock total, sube en dispensario
-        genetica = await tx.genetica.update({
-          where: { id: geneticaId },
-          data: {
-            stockGramos:            { decrement: gramos },
-            stockGramosDispensario: { increment: gramos },
-          },
-        })
+        stockGramosDispensario = Number(rows[0].stockGramosDispensario)
       } else {
         // Egreso: solo baja del dispensario
-        genetica = await tx.genetica.update({
+        const genetica = await tx.genetica.update({
           where: { id: geneticaId },
           data: { stockGramosDispensario: { decrement: gramos } },
         })
+        stockGramosDispensario = Number(genetica.stockGramosDispensario)
       }
 
       const mov = await tx.movimientoStock.create({
@@ -143,7 +148,7 @@ router.post('/', async (req: Request, res: Response) => {
           asociado:  { select: { id: true, nombre: true, apellido: true } },
         },
       })
-      return [mov, genetica.stockGramosDispensario]
+      return [mov, stockGramosDispensario]
     })
 
     res.status(201).json({

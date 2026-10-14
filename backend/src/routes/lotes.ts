@@ -185,10 +185,12 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Faltan campos obligatorios (sala, fechaInicio)' })
     }
 
-    const codigo = await generarCodigoLote(sala)
     const usuarioId = req.usuarioId ?? null
-
-    const lote = await prisma.$transaction(async (tx) => {
+    // Mitiga EL-1: reintento ante colisión de código único bajo concurrencia (P2002)
+    let codigo = await generarCodigoLote(sala)
+    let _loteIntento = 0
+    // eslint-disable-next-line no-constant-condition
+    const lote = await (async () => { for (;;) { try { return await prisma.$transaction(async (tx) => {
       const nuevo = await tx.lote.create({
         data: {
           codigo,
@@ -269,7 +271,8 @@ router.post('/', async (req: Request, res: Response) => {
       })
 
       return nuevo
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) } catch (e: any) { if (e?.code === 'P2002' && ++_loteIntento < 3) { codigo = await generarCodigoLote(sala); continue } throw e } } })()
 
     const loteCompleto = await prisma.lote.findUnique({
       where:   { id: lote.id },

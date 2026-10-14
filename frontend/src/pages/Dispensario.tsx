@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, AlertCircle, Loader2, Pencil, Eye, Trash2, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import axios from 'axios'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -312,22 +313,30 @@ export default function Dispensario() {
 
   useEffect(() => { cargarGeneticas() }, [cargarGeneticas])
 
-  const cargar = useCallback(async () => {
+  // Mitiga RR-2: acepta AbortSignal para cancelar peticiones en vuelo
+  const cargar = useCallback(async (signal?: AbortSignal) => {
     setCargando(true)
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) })
       if (filtroGen)  params.set('geneticaId', filtroGen)
       if (filtroTipo) params.set('tipo', filtroTipo)
       if (filtroMes)  params.set('mes', filtroMes)
-      const { data } = await api.get<{ movimientos: Movimiento[]; total: number }>(`/dispensario?${params}`)
+      const { data } = await api.get<{ movimientos: Movimiento[]; total: number }>(`/dispensario?${params}`, { signal })
       setMovimientos(data.movimientos ?? [])
       setTotal(data.total ?? 0)
+    } catch (e) {
+      if (!axios.isCancel(e)) throw e
     } finally {
       setCargando(false)
     }
   }, [page, filtroGen, filtroTipo, filtroMes])
 
-  useEffect(() => { cargar() }, [cargar])
+  // Mitiga RR-2: cancela la petición si los filtros cambian antes de que responda
+  useEffect(() => {
+    const controller = new AbortController()
+    cargar(controller.signal)
+    return () => controller.abort()
+  }, [cargar])
 
   function onGuardar() { cargar(); cargarGeneticas() }
 

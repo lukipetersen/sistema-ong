@@ -354,6 +354,15 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const nuevoGramos = Math.round(Number(cantidadGramos))
 
+    // Mitiga EL-2: guard defensivo — esta ruta solo procesa movimientos STOCK_TOTAL
+    const movExistentePut = await prisma.movimientoStock.findUnique({ where: { id: req.params.id } })
+    if (!movExistentePut) return res.status(404).json({ error: 'Movimiento no encontrado' })
+    if (movExistentePut.seccion === 'DISPENSARIO') {
+      return res.status(400).json({
+        error: 'Debes usar el módulo de dispensario (/api/dispensario) para editar o eliminar estos movimientos.',
+      })
+    }
+
     const [movActualizado, stockActual] = await prisma.$transaction(async (tx) => {
       const anterior = await tx.movimientoStock.findUnique({ where: { id: req.params.id } })
       if (!anterior) throw new Error('Movimiento no encontrado')
@@ -416,6 +425,15 @@ router.put('/:id', async (req: Request, res: Response) => {
 // Elimina y recalcula el stock desde cero para evitar drift acumulado.
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    // Mitiga EL-2: guard defensivo — esta ruta solo procesa movimientos STOCK_TOTAL
+    const movExistenteDel = await prisma.movimientoStock.findUnique({ where: { id: req.params.id } })
+    if (!movExistenteDel) return res.status(404).json({ error: 'Movimiento no encontrado' })
+    if (movExistenteDel.seccion === 'DISPENSARIO') {
+      return res.status(400).json({
+        error: 'Debes usar el módulo de dispensario (/api/dispensario) para editar o eliminar estos movimientos.',
+      })
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const mov = await tx.movimientoStock.delete({ where: { id: req.params.id } })
 
