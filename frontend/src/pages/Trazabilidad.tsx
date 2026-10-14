@@ -749,7 +749,6 @@ function VistaLoteDetalle({
         </button>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-bold text-gray-900">{data.nombre || data.codigo}</h2>
-          {data.nombre && <span className="text-sm text-gray-400 font-mono">{data.codigo}</span>}
           <BadgeLote estado={data.estado} />
           <span className="text-sm text-gray-500">{(salaLabels ?? SALA_LABELS)[data.sala]}</span>
           <span className="text-sm text-gray-400">·</span>
@@ -1268,7 +1267,6 @@ function TabLotes({ todasGeneticas }: { todasGeneticas: Genetica[] }) {
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="font-mono text-sm font-bold text-gray-900">{l.nombre || l.codigo}</span>
-                  {l.nombre && <span className="text-xs text-gray-400 font-mono">{l.codigo}</span>}
                   <BadgeLote estado={l.estado} />
                   <span className="text-xs text-gray-400">{salaLabels[l.sala] ?? SALA_LABELS[l.sala]}</span>
                 </div>

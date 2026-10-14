@@ -1273,7 +1273,7 @@ export default function Stock() {
                       <td className="px-4 py-3 text-slate-500 max-w-[200px] hidden md:table-cell">
                         {m.lote ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 rounded px-1.5 py-0.5">
-                            📦 {m.lote.codigo}
+                            📦 {m.lote.nombre || m.lote.codigo}
                           </span>
                         ) : (
                           <span className="truncate block">{m.observaciones ?? '—'}</span>
