@@ -71,7 +71,7 @@ export default function ModalLote({ lote, geneticaNombre, onGuardar, onCerrar, c
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {esEdicion ? `Editar lote ${lote.codigo}` : 'Nuevo lote'}
+              {esEdicion ? `Editar lote ${lote.nombre || lote.codigo}` : 'Nuevo lote'}
             </h2>
             {geneticaNombre && (
               <p className="text-sm text-gray-500">{geneticaNombre}</p>

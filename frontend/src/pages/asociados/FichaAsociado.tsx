@@ -39,7 +39,7 @@ interface MovStock {
   fecha: string
   observaciones: string | null
   genetica: { id: string; nombre: string }
-  lote: { id: string; codigo: string } | null
+  lote: { id: string; codigo: string; nombre: string | null } | null
 }
 
 function fmtGramos(g: number) {
@@ -496,7 +496,7 @@ export default function FichaAsociado() {
                           <td className={`px-4 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>
                             {m.tipo === 'EGRESO' ? '-' : '+'}{fmtGramos(m.cantidadGramos)}
                           </td>
-                          <td className="px-4 py-3 text-slate-400 font-mono text-xs hidden md:table-cell">{m.lote?.codigo ?? '—'}</td>
+                          <td className="px-4 py-3 text-slate-400 text-xs hidden md:table-cell">{m.lote ? (m.lote.nombre || m.lote.codigo) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
