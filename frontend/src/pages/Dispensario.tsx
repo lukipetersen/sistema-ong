@@ -112,6 +112,24 @@ function ModalMovimiento({
         </div>
 
         <div className="px-6 py-5 space-y-4">
+          {/* Genética — va primero para que tipoOpciones ya tenga el stockGramos */}
+          {!editar ? (
+            <div>
+              <label className="etiqueta">Genética *</label>
+              <select value={geneticaId} onChange={e => setGeneticaId(e.target.value)} className="campo">
+                <option value="">Seleccioná una genética</option>
+                {geneticas.map(g => (
+                  <option key={g.id} value={g.id}>{g.nombre}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="etiqueta">Genética</label>
+              <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
+            </div>
+          )}
+
           {/* Tipo */}
           {!editar && (
             <div className="space-y-2">
@@ -136,24 +154,6 @@ function ModalMovimiento({
           {editar && (
             <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${editar.tipo === 'INGRESO' ? 'bg-[#fdf9ee] text-[#7a6840]' : 'bg-red-50 text-red-700'}`}>
               {editar.tipo === 'INGRESO' ? 'Traslado desde Stock Total' : 'Egreso / Dispensación'}
-            </div>
-          )}
-
-          {/* Genética */}
-          {!editar ? (
-            <div>
-              <label className="etiqueta">Genética *</label>
-              <select value={geneticaId} onChange={e => setGeneticaId(e.target.value)} className="campo">
-                <option value="">Seleccioná una genética</option>
-                {geneticas.map(g => (
-                  <option key={g.id} value={g.id}>{g.nombre}</option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div>
-              <label className="etiqueta">Genética</label>
-              <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
             </div>
           )}
 
