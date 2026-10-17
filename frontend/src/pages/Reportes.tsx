@@ -884,7 +884,7 @@ function SeccionPersonalizado() {
     const v = row[col]
     if (v == null) return '—'
     if (typeof v === 'object' && 'nombre' in (v as object)) return (v as { nombre: string }).nombre
-    if (col === 'fecha' || col === 'fechaInicio') return new Date(String(v)).toLocaleDateString('es-AR')
+    if (col === 'fecha' || col === 'fechaInicio') return new Date(String(v)).toLocaleDateString('es-AR', { timeZone: 'UTC' })
     if (col === 'monto') return formatPeso(Number(v))
     return String(v)
   }

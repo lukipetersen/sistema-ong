@@ -31,7 +31,7 @@ interface Props {
 }
 
 export default function ModalPago({ asociadoId, asociado, onGuardado, onCerrar }: Props) {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
   const [saldoMes, setSaldoMes] = useState<{ cuota: number; pagado: number; falta: number } | null>(null)
 
   const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<FormData>({

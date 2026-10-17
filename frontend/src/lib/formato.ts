@@ -8,8 +8,13 @@ export function formatearMoneda(valor: number): string {
 
 export function formatearFecha(fecha: string | Date): string {
   return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ,
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC',
   }).format(new Date(fecha))
+}
+
+export function fechaLocalHoy(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function formatearFechaHora(fecha: string | Date): string {

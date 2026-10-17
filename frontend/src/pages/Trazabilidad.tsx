@@ -752,7 +752,7 @@ function VistaLoteDetalle({
           <BadgeLote estado={data.estado} />
           <span className="text-sm text-gray-500">{(salaLabels ?? SALA_LABELS)[data.sala]}</span>
           <span className="text-sm text-gray-400">·</span>
-          <span className="text-sm text-gray-500">{new Date(data.fechaInicio).toLocaleDateString('es-AR')}</span>
+          <span className="text-sm text-gray-500">{new Date(data.fechaInicio).toLocaleDateString('es-AR', { timeZone: 'UTC' })}</span>
         </div>
       </div>
 
@@ -948,7 +948,7 @@ function VistaLoteDetalle({
                       )}
                     </td>
                     <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-                      {new Date(m.fecha).toLocaleDateString('es-AR')}
+                      {new Date(m.fecha).toLocaleDateString('es-AR', { timeZone: 'UTC' })}
                     </td>
                     <td className="px-3 py-2 font-medium text-slate-800">{m.genetica.nombre}</td>
                     <td className={`px-3 py-2 text-right font-semibold tabular-nums ${m.tipo === 'INGRESO' ? 'text-[#4a7030]' : 'text-red-600'}`}>

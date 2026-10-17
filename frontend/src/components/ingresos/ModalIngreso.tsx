@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function ModalIngreso({ ingreso, onGuardado, onCerrar }: Props) {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(esquema),

@@ -50,7 +50,8 @@ function ModalMovimiento({
   const [lotes,       setLotes]       = useState<{ id: string; codigo: string; nombre: string | null }[]>([])
   const [cantidad,    setCantidad]    = useState(editar ? String(editar.cantidadGramos) : '')
   const [unidad,      setUnidad]      = useState<'g' | 'kg'>('g')
-  const [fecha,       setFecha]       = useState(editar ? editar.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10))
+  const hoyLocal = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()
+  const [fecha,       setFecha]       = useState(editar ? editar.fecha.slice(0, 10) : hoyLocal)
   const [obs,         setObs]         = useState(editar?.observaciones ?? '')
   const [asociadoId,  setAsociadoId]  = useState(editar?.asociado?.id ?? '')
   const [asociados,   setAsociados]   = useState<Asociado[]>([])
@@ -267,7 +268,7 @@ function ModalDetalle({ mov, onCerrar }: { mov: Movimiento; onCerrar: () => void
           </div>
           <div className="flex justify-between"><span className="text-slate-500">Genética</span><span className="font-medium text-slate-800">{mov.genetica.nombre}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Cantidad</span><span className="font-semibold text-slate-800">{fmt(mov.cantidadGramos)}</span></div>
-          <div className="flex justify-between"><span className="text-slate-500">Fecha</span><span className="text-slate-700">{new Date(mov.fecha).toLocaleDateString('es-AR')}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Fecha</span><span className="text-slate-700">{new Date(mov.fecha).toLocaleDateString('es-AR', { timeZone: 'UTC' })}</span></div>
           {mov.asociado && <div className="flex justify-between"><span className="text-slate-500">Asociado</span><span className="text-slate-700">{mov.asociado.nombre} {mov.asociado.apellido}</span></div>}
           {mov.usuario && <div className="flex justify-between"><span className="text-slate-500">Registrado por</span><span className="text-slate-700">{mov.usuario.nombre} {mov.usuario.apellido}</span></div>}
           {mov.observaciones && <div><p className="text-slate-500 mb-0.5">Observaciones</p><p className="text-slate-700 bg-slate-50 rounded-lg p-2.5">{mov.observaciones}</p></div>}
@@ -477,7 +478,7 @@ export default function Dispensario() {
                         {mov.asociado ? `${mov.asociado.nombre} ${mov.asociado.apellido}` : <span className="text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
-                        {new Date(mov.fecha).toLocaleDateString('es-AR')}
+                        {new Date(mov.fecha).toLocaleDateString('es-AR', { timeZone: 'UTC' })}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">

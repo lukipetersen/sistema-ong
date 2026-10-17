@@ -48,7 +48,7 @@ export default function ModalLote({ lote, geneticaNombre, onGuardar, onCerrar, c
         }
       : {
           sala:            'SALA_1',
-          fechaInicio:     new Date().toISOString().slice(0, 10),
+          fechaInicio:     (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })(),
           cantidadPlantas: 0,
           observaciones:   '',
         },

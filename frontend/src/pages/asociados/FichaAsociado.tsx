@@ -485,7 +485,7 @@ export default function FichaAsociado() {
                     <tbody className="divide-y divide-slate-50">
                       {movStock.map(m => (
                         <tr key={m.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(m.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' })}</td>
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(m.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', timeZone:'UTC' })}</td>
                           <td className="px-4 py-3 font-medium text-slate-800">{m.genetica.nombre}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${m.tipo === 'INGRESO' ? 'bg-[#edf5e0] text-[#4a7030]' : 'bg-red-50 text-red-600'}`}>
