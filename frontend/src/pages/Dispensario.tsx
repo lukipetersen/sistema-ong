@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, X, AlertCircle, Loader2, Pencil, Eye, Trash2, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import axios from 'axios'
 import { api } from '@/lib/api'
+import { formatearFecha, fechaParaInput, hoyParaInput } from '@/lib/formato'
 import { useAuth } from '@/contexts/AuthContext'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -50,7 +51,7 @@ function ModalMovimiento({
   const [lotes,       setLotes]       = useState<{ id: string; codigo: string; nombre: string | null }[]>([])
   const [cantidad,    setCantidad]    = useState(editar ? String(editar.cantidadGramos) : '')
   const [unidad,      setUnidad]      = useState<'g' | 'kg'>('g')
-  const [fecha,       setFecha]       = useState(editar ? editar.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10))
+  const [fecha,       setFecha]       = useState(editar ? fechaParaInput(editar.fecha) : hoyParaInput())
   const [obs,         setObs]         = useState(editar?.observaciones ?? '')
   const [asociadoId,  setAsociadoId]  = useState(editar?.asociado?.id ?? '')
   const [asociados,   setAsociados]   = useState<Asociado[]>([])
@@ -267,7 +268,7 @@ function ModalDetalle({ mov, onCerrar }: { mov: Movimiento; onCerrar: () => void
           </div>
           <div className="flex justify-between"><span className="text-slate-500">Genética</span><span className="font-medium text-slate-800">{mov.genetica.nombre}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Cantidad</span><span className="font-semibold text-slate-800">{fmt(mov.cantidadGramos)}</span></div>
-          <div className="flex justify-between"><span className="text-slate-500">Fecha</span><span className="text-slate-700">{new Date(mov.fecha).toLocaleDateString('es-AR')}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Fecha</span><span className="text-slate-700">{formatearFecha(mov.fecha)}</span></div>
           {mov.asociado && <div className="flex justify-between"><span className="text-slate-500">Asociado</span><span className="text-slate-700">{mov.asociado.nombre} {mov.asociado.apellido}</span></div>}
           {mov.usuario && <div className="flex justify-between"><span className="text-slate-500">Registrado por</span><span className="text-slate-700">{mov.usuario.nombre} {mov.usuario.apellido}</span></div>}
           {mov.observaciones && <div><p className="text-slate-500 mb-0.5">Observaciones</p><p className="text-slate-700 bg-slate-50 rounded-lg p-2.5">{mov.observaciones}</p></div>}
@@ -341,7 +342,7 @@ export default function Dispensario() {
   function onGuardar() { cargar(); cargarGeneticas() }
 
   // Stats del mes actual
-  const mesActual = new Date().toISOString().slice(0, 7)
+  const mesActual = hoyParaInput().slice(0, 7)
   const [statsTraslado, setStatsTraslado] = useState(0)
   const [statsEgreso,   setStatsEgreso]   = useState(0)
 
@@ -477,7 +478,7 @@ export default function Dispensario() {
                         {mov.asociado ? `${mov.asociado.nombre} ${mov.asociado.apellido}` : <span className="text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
-                        {new Date(mov.fecha).toLocaleDateString('es-AR')}
+                        {formatearFecha(mov.fecha)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import { api } from '@/lib/api'
+import { formatearFecha, fechaParaInput, hoyParaInput } from '@/lib/formato'
 import { autoImportarMovimientos, ResultadoImportStock } from '@/utils/stock-import'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ function fmtSubstock(cantidad: number, unidad: string): string {
 }
 
 function fmtFecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  return formatearFecha(iso, { year: '2-digit' })
 }
 
 function mesActual() {
@@ -182,7 +183,7 @@ function ModalMovimiento({
   const [tipo, setTipo]               = useState<'INGRESO' | 'EGRESO'>('INGRESO')
   const [cantidad, setCantidad]       = useState('')
   const [unidad, setUnidad]           = useState<'g' | 'kg'>('g')
-  const [fecha, setFecha]             = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha]             = useState(hoyParaInput)
   const [observaciones, setObs]       = useState('')
   const [asociadoId, setAsociadoId]   = useState('')
   const [asociados, setAsociados]     = useState<AsociadoOption[]>([])
@@ -390,7 +391,7 @@ function ModalEditarMovimiento({
 }) {
   const [cantidad, setCantidad]     = useState(String(movimiento.cantidadGramos))
   const [unidad, setUnidad]         = useState<'g' | 'kg'>('g')
-  const [fecha, setFecha]           = useState(movimiento.fecha.slice(0, 10))
+  const [fecha, setFecha]           = useState(fechaParaInput(movimiento.fecha))
   const [observaciones, setObs]     = useState(movimiento.observaciones ?? '')
   const [asociadoId, setAsociadoId] = useState(movimiento.asociado?.id ?? '')
   const [asociados, setAsociados]   = useState<AsociadoOption[]>([])
@@ -711,7 +712,7 @@ function ModalMovSubproducto({ subproductos, subproductoPreseleccionado, onGuard
   const [cargLotes, setCargLotes]   = useState(false)
   const [tipo, setTipo]             = useState<'INGRESO' | 'EGRESO'>('INGRESO')
   const [cantidad, setCantidad]     = useState('')
-  const [fecha, setFecha]           = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha]           = useState(hoyParaInput)
   const [observaciones, setObs]     = useState('')
   const [guardando, setGuardando]   = useState(false)
   const [error, setError]           = useState('')
