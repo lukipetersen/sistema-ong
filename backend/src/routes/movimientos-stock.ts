@@ -3,6 +3,7 @@ import { TipoMovimiento, SeccionStock } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { autenticar, autorizar } from '../middleware/auth'
 import { recalcularStockGenetica, recalcularLoteGenetica } from '../lib/stock'
+import { parsearFechaCalendario } from '../lib/fechas'
 
 const router = Router()
 router.use(autenticar)
@@ -90,7 +91,8 @@ router.post('/', async (req: Request, res: Response) => {
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
     if (!cantidadGramos || Number(cantidadGramos) <= 0) return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
-    if (!fecha)                                return res.status(400).json({ error: 'Falta la fecha' })
+    const fechaDb = parsearFechaCalendario(fecha)
+    if (!fechaDb)                              return res.status(400).json({ error: 'Falta la fecha o es inválida' })
 
     const gramos    = Math.round(Number(cantidadGramos))
     const delta     = tipo === 'INGRESO' ? gramos : -gramos
@@ -118,7 +120,7 @@ router.post('/', async (req: Request, res: Response) => {
           tipo:       tipo as TipoMovimiento,
           seccion:    'STOCK_TOTAL',
           cantidadGramos: gramos,
-          fecha: new Date(fecha),
+          fecha: fechaDb,
           observaciones: observaciones || null,
           usuarioId,
         },
@@ -159,14 +161,15 @@ router.post('/importar', async (req: Request, res: Response) => {
       if (!m.geneticaId)                                      { errores.push({ fila, error: 'Falta geneticaId' }); continue }
       if (!['INGRESO', 'EGRESO'].includes(String(m.tipo)))    { errores.push({ fila, error: `Tipo inválido: ${m.tipo}` }); continue }
       if (!m.cantidadGramos || Number(m.cantidadGramos) <= 0) { errores.push({ fila, error: 'Cantidad inválida' }); continue }
-      if (!m.fecha)                                           { errores.push({ fila, error: 'Falta fecha' }); continue }
+      const fechaFila = parsearFechaCalendario(m.fecha)
+      if (!fechaFila)                                         { errores.push({ fila, error: 'Falta fecha o es inválida' }); continue }
       datos.push({
         sheetsId:       (m.sheetsId && String(m.sheetsId).trim()) ? String(m.sheetsId).trim() : null,
         geneticaId:     String(m.geneticaId),
         loteId:         m.loteId ? String(m.loteId) : null,
         tipo:           String(m.tipo) as TipoMovimiento,
         cantidadGramos: Math.round(Number(m.cantidadGramos)),
-        fecha:          new Date(String(m.fecha)),
+        fecha:          fechaFila,
         observaciones:  m.observaciones ? String(m.observaciones) : null,
       })
     }
@@ -349,8 +352,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { cantidadGramos, fecha, observaciones, loteId, asociadoId } = req.body
     if (!cantidadGramos || Number(cantidadGramos) <= 0)
       return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
-    if (!fecha)
-      return res.status(400).json({ error: 'Falta la fecha' })
+    const fechaDb = parsearFechaCalendario(fecha)
+    if (!fechaDb)
+      return res.status(400).json({ error: 'Falta la fecha o es inválida' })
 
     const nuevoGramos = Math.round(Number(cantidadGramos))
 
@@ -399,7 +403,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         where: { id: req.params.id },
         data: {
           cantidadGramos: nuevoGramos,
-          fecha:          new Date(fecha),
+          fecha:          fechaDb,
           observaciones:  observaciones ?? anterior.observaciones,
           loteId:         nuevoLoteId,
           asociadoId:     asociadoId !== undefined ? (asociadoId || null) : anterior.asociadoId,

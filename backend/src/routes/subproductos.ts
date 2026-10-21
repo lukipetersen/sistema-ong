@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { TipoMovimiento } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { autenticar } from '../middleware/auth'
+import { parsearFechaCalendario } from '../lib/fechas'
 
 const router = Router()
 router.use(autenticar)
@@ -77,7 +78,8 @@ router.post('/movimientos', async (req: Request, res: Response) => {
     if (!subproductoId)                           return res.status(400).json({ error: 'Falta subproductoId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo))    return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
     if (!cantidad || Number(cantidad) <= 0)        return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
-    if (!fecha)                                    return res.status(400).json({ error: 'Falta la fecha' })
+    const fechaDb = parsearFechaCalendario(fecha)
+    if (!fechaDb)                                  return res.status(400).json({ error: 'Falta la fecha o es inválida' })
 
     const cant      = Math.round(Number(cantidad))
     const delta     = tipo === 'INGRESO' ? cant : -cant
@@ -94,7 +96,7 @@ router.post('/movimientos', async (req: Request, res: Response) => {
           loteId: loteId || null,
           tipo: tipo as TipoMovimiento,
           cantidad: cant,
-          fecha: new Date(fecha),
+          fecha: fechaDb,
           observaciones: observaciones || null,
           usuarioId,
         },

@@ -3,6 +3,7 @@ import { TipoMovimiento } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { autenticar, tieneModulo } from '../middleware/auth'
 import { recalcularStockGenetica } from '../lib/stock'
+import { parsearFechaCalendario } from '../lib/fechas'
 
 const router = Router()
 router.use(autenticar)
@@ -91,7 +92,8 @@ router.post('/', async (req: Request, res: Response) => {
     if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
     if (!cantidadGramos || Number(cantidadGramos) <= 0) return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
-    if (!fecha)                                return res.status(400).json({ error: 'Falta la fecha' })
+    const fechaDb = parsearFechaCalendario(fecha)
+    if (!fechaDb)                              return res.status(400).json({ error: 'Falta la fecha o es inválida' })
 
     if (tipo === 'INGRESO' && !puedeIngreso(req)) {
       return res.status(403).json({ error: 'No tenés permiso para trasladar stock al dispensario.' })
@@ -138,7 +140,7 @@ router.post('/', async (req: Request, res: Response) => {
           tipo:       tipo as TipoMovimiento,
           seccion:    'DISPENSARIO',
           cantidadGramos: gramos,
-          fecha:      new Date(fecha),
+          fecha:      fechaDb,
           observaciones: observaciones || null,
           usuarioId,
         },
@@ -182,7 +184,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         where: { id: req.params.id },
         data: {
           cantidadGramos: gramosNuevos,
-          fecha:          fecha ? new Date(fecha) : existing.fecha,
+          fecha:          parsearFechaCalendario(fecha) ?? existing.fecha,
           observaciones:  observaciones !== undefined ? (observaciones || null) : existing.observaciones,
           asociadoId:     asociadoId !== undefined ? (asociadoId || null) : existing.asociadoId,
         },

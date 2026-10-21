@@ -6,13 +6,24 @@ export function formatearMoneda(valor: number): string {
   }).format(valor)
 }
 
-export function formatearFecha(fecha: string | Date): string {
+// ─── Fechas de calendario ───
+// Los campos `fecha` (movimientos, gastos, etc.) son días de calendario guardados en UTC
+// (el backend los fija a las 12:00 UTC). Se formatean en UTC para no aplicar el offset
+// de Argentina (UTC-3), que los corría al día anterior.
+export function formatearFecha(fecha: string | Date, opciones: Intl.DateTimeFormatOptions = {}): string {
   return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC',
+    day: '2-digit', month: '2-digit', year: 'numeric', ...opciones, timeZone: 'UTC',
   }).format(new Date(fecha))
 }
 
-export function fechaLocalHoy(): string {
+// Valor `YYYY-MM-DD` para un <input type="date"> a partir de una fecha de calendario del backend
+export function fechaParaInput(fecha: string): string {
+  return fecha.slice(0, 10)
+}
+
+// Hoy en hora local, como `YYYY-MM-DD`. No usar `toISOString()`: después de las 21:00 en
+// Argentina ya devuelve el día siguiente.
+export function hoyParaInput(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
