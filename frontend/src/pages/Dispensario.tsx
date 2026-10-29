@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 interface Genetica {
   id: string
   nombre: string
+  stockGramos: number
   stockGramosDispensario: number
 }
 
@@ -81,6 +82,10 @@ function ModalMovimiento({
     if (!fecha) { setError('Ingresá la fecha'); return }
 
     const gramos = unidad === 'kg' ? Math.round(Number(cantidad) * 1000) : Math.round(Number(cantidad))
+    if (!editar && tipo === 'INGRESO' && gramos > (gen?.stockGramos ?? 0)) {
+      setError(`Stock insuficiente en Stock Total. Disponible: ${fmt(gen?.stockGramos ?? 0)}`)
+      return
+    }
     setGuardando(true); setError('')
     try {
       const body = { geneticaId, tipo, loteId: loteId || null, cantidadGramos: gramos, fecha, observaciones: obs || null, asociadoId: tipo === 'EGRESO' ? (asociadoId || null) : null }
@@ -98,9 +103,8 @@ function ModalMovimiento({
     }
   }
 
-  const tieneStockTotal = (gen?.stockGramos ?? 0) > 0
   const tipoOpciones: { value: 'INGRESO' | 'EGRESO'; label: string; desc: string }[] = [
-    ...(puedeIngreso && tieneStockTotal ? [{ value: 'INGRESO' as const, label: 'Traslado desde Stock Total', desc: 'Mueve kg del inventario al dispensario' }] : []),
+    ...(puedeIngreso ? [{ value: 'INGRESO' as const, label: 'Traslado desde Stock Total', desc: 'Mueve kg del inventario al dispensario' }] : []),
     { value: 'EGRESO' as const, label: 'Egreso / Dispensación', desc: 'Entrega a un asociado o consumo' },
   ]
 
@@ -113,6 +117,24 @@ function ModalMovimiento({
         </div>
 
         <div className="px-6 py-5 space-y-4">
+          {/* Genética */}
+          {!editar ? (
+            <div>
+              <label className="etiqueta">Genética *</label>
+              <select value={geneticaId} onChange={e => setGeneticaId(e.target.value)} className="campo">
+                <option value="">Seleccioná una genética</option>
+                {geneticas.map(g => (
+                  <option key={g.id} value={g.id}>{g.nombre}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="etiqueta">Genética</label>
+              <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
+            </div>
+          )}
+
           {/* Tipo */}
           {!editar && (
             <div className="space-y-2">
@@ -140,24 +162,6 @@ function ModalMovimiento({
             </div>
           )}
 
-          {/* Genética */}
-          {!editar ? (
-            <div>
-              <label className="etiqueta">Genética *</label>
-              <select value={geneticaId} onChange={e => setGeneticaId(e.target.value)} className="campo">
-                <option value="">Seleccioná una genética</option>
-                {geneticas.map(g => (
-                  <option key={g.id} value={g.id}>{g.nombre}</option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div>
-              <label className="etiqueta">Genética</label>
-              <p className="text-sm text-slate-700 font-medium">{editar.genetica.nombre}</p>
-            </div>
-          )}
-
           {/* Lote vinculado */}
           {!editar && geneticaId && (
             <div>
@@ -175,13 +179,21 @@ function ModalMovimiento({
             </div>
           )}
 
-          {/* Stock disponible en dispensario */}
-          {gen && (
+          {/* Stock disponible: Stock Total para traslados, dispensario para egresos */}
+          {gen && (tipo === 'INGRESO' && !editar ? (
+            <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
+              <p className="text-xs text-slate-500 mb-0.5">Disponible en Stock Total</p>
+              <p className={`text-sm font-bold ${gen.stockGramos <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>{fmt(gen.stockGramos)}</p>
+              {gen.stockGramos <= 0 && (
+                <p className="text-xs text-red-600 mt-1">Esta genética no tiene stock total para trasladar. Cargá un ingreso en Stock primero.</p>
+              )}
+            </div>
+          ) : (
             <div className="bg-[#F5F4F2] rounded-lg p-2.5 text-center">
               <p className="text-xs text-slate-500 mb-0.5">Disponible en dispensario</p>
               <p className={`text-sm font-bold ${gen.stockGramosDispensario <= 0 ? 'text-red-600' : 'text-[#4a7030]'}`}>{fmt(gen.stockGramosDispensario)}</p>
             </div>
-          )}
+          ))}
 
           {/* Cantidad */}
           <div>
