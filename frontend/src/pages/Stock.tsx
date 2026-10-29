@@ -180,7 +180,7 @@ function ModalMovimiento({
   const [loteId, setLoteId]           = useState('')
   const [lotesDisponibles, setLotes]  = useState<LoteOption[]>([])
   const [cargandoLotes, setCargLotes] = useState(false)
-  const [tipo, setTipo]               = useState<'INGRESO' | 'EGRESO'>('INGRESO')
+  const [tipo, setTipo]               = useState<'INGRESO' | 'EGRESO' | 'TRASLADO'>('INGRESO')
   const [cantidad, setCantidad]       = useState('')
   const [unidad, setUnidad]           = useState<'g' | 'kg'>('g')
   const [fecha, setFecha]             = useState(hoyParaInput)
@@ -226,6 +226,16 @@ function ModalMovimiento({
     setGuardando(true)
     setError('')
     try {
+      // Traslado: va por /dispensario (INGRESO de dispensario baja Stock Total y sube Dispensario)
+      if (tipo === 'TRASLADO') {
+        await api.post('/dispensario', {
+          geneticaId, loteId: loteId || null,
+          tipo: 'INGRESO', cantidadGramos, fecha, observaciones: observaciones || null,
+        })
+        onGuardar()
+        onCerrar()
+        return
+      }
       const { data } = await api.post('/movimientos-stock', {
         geneticaId, loteId: loteId || null,
         tipo, cantidadGramos, fecha, observaciones: observaciones || null,
@@ -280,22 +290,27 @@ function ModalMovimiento({
         <div className="px-6 py-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Tipo de movimiento</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['INGRESO', 'EGRESO'] as const).map(t => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['INGRESO', 'EGRESO', 'TRASLADO'] as const).map(t => (
                 <button
                   key={t}
                   onClick={() => setTipo(t)}
                   className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${
                     tipo === t
-                      ? t === 'INGRESO' ? 'border-[#4a7030] bg-[#edf5e0] text-[#4a7030]' : 'border-red-500 bg-red-50 text-red-600'
+                      ? t === 'INGRESO' ? 'border-[#4a7030] bg-[#edf5e0] text-[#4a7030]'
+                      : t === 'EGRESO'  ? 'border-red-500 bg-red-50 text-red-600'
+                      :                   'border-[#c9b97a] bg-[#fdf9ee] text-[#7a6840]'
                       : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                   }`}
                 >
-                  {t === 'INGRESO' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                  {t === 'INGRESO' ? 'Ingreso' : 'Egreso'}
+                  {t === 'INGRESO' ? <TrendingUp className="w-4 h-4" /> : t === 'EGRESO' ? <TrendingDown className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
+                  {t === 'INGRESO' ? 'Ingreso' : t === 'EGRESO' ? 'Egreso' : 'A Dispensario'}
                 </button>
               ))}
             </div>
+            {tipo === 'TRASLADO' && (
+              <p className="text-xs text-slate-500 mt-1.5">Mueve gramos del Stock Total al Dispensario.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Genética *</label>
