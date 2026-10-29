@@ -9,6 +9,8 @@ const router = Router()
 router.use(autenticar)
 router.use(tieneModulo('/dispensario'))
 
+class ErrorStockInsuficiente extends Error {}
+
 function puedeIngreso(req: Request): boolean {
   if (req.usuarioRol === 'ADMINISTRADOR') return true
   return req.usuarioModulos.includes('/dispensario:ingresos')
@@ -89,9 +91,10 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { geneticaId, loteId, tipo, cantidadGramos, fecha, observaciones, asociadoId } = req.body
 
-    if (!geneticaId)                           return res.status(400).json({ error: 'Falta geneticaId' })
+    if (!geneticaId || typeof geneticaId !== 'string') return res.status(400).json({ error: 'Falta geneticaId' })
     if (!['INGRESO', 'EGRESO'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (INGRESO | EGRESO)' })
-    if (!cantidadGramos || Number(cantidadGramos) <= 0) return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
+    const gramos = Math.round(Number(cantidadGramos))
+    if (!Number.isFinite(gramos) || gramos <= 0) return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' })
     const fechaDb = parsearFechaCalendario(fecha)
     if (!fechaDb)                              return res.status(400).json({ error: 'Falta la fecha o es inválida' })
 
@@ -99,30 +102,36 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'No tenés permiso para trasladar stock al dispensario.' })
     }
 
-    const gramos    = Math.round(Number(cantidadGramos))
+    const existe = await prisma.genetica.findUnique({ where: { id: geneticaId }, select: { id: true } })
+    if (!existe) return res.status(404).json({ error: 'Genética no encontrada' })
+
     const usuarioId = req.usuarioId ?? null
 
     const [movimiento, stockActual] = await prisma.$transaction(async (tx) => {
       let stockGramosDispensario: number
 
       if (tipo === 'INGRESO') {
-        // Mitiga RC-1: UPDATE condicional atómico — sin SELECT previo no hay ventana de race condition
-        // bajo READ COMMITTED. El UPDATE solo se ejecuta si stockGramos >= gramos (condición AND).
-        const rows = await tx.$queryRaw<{ stockGramosDispensario: number }[]>`
-          UPDATE "geneticas"
-          SET    "stockGramos"            = "stockGramos" - ${gramos},
-                 "stockGramosDispensario" = "stockGramosDispensario" + ${gramos}
-          WHERE  id = ${geneticaId}::text
-            AND  "stockGramos" >= ${gramos}
-          RETURNING "stockGramosDispensario"
-        `
-        if (rows.length === 0) {
+        // Mitiga RC-1: UPDATE condicional atómico (updateMany con condición en el WHERE).
+        // Postgres re-evalúa el WHERE sobre la fila bloqueada, así que dos traslados
+        // concurrentes no pueden dejar stockGramos negativo bajo READ COMMITTED.
+        const { count } = await tx.genetica.updateMany({
+          where: { id: geneticaId, stockGramos: { gte: gramos } },
+          data: {
+            stockGramos:            { decrement: gramos },
+            stockGramosDispensario: { increment: gramos },
+          },
+        })
+        if (count === 0) {
           const actual = await tx.genetica.findUnique({ where: { id: geneticaId }, select: { stockGramos: true } })
-          throw new Error(
+          throw new ErrorStockInsuficiente(
             `Stock insuficiente en Stock Total. Disponible: ${Number(actual?.stockGramos ?? 0)}g, solicitado: ${gramos}g`,
           )
         }
-        stockGramosDispensario = Number(rows[0].stockGramosDispensario)
+        const genetica = await tx.genetica.findUniqueOrThrow({
+          where:  { id: geneticaId },
+          select: { stockGramosDispensario: true },
+        })
+        stockGramosDispensario = Number(genetica.stockGramosDispensario)
       } else {
         // Egreso: solo baja del dispensario
         const genetica = await tx.genetica.update({
@@ -159,6 +168,10 @@ router.post('/', async (req: Request, res: Response) => {
       stockDispensario: stockActual,
     })
   } catch (e) {
+    if (e instanceof ErrorStockInsuficiente) {
+      return res.status(400).json({ error: e.message })
+    }
+    console.error('Error en POST /dispensario:', e)
     res.status(500).json({ error: e instanceof Error ? e.message : 'Error al crear movimiento' })
   }
 })
